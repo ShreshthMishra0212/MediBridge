@@ -1,14 +1,45 @@
-import { useRef, useState } from "react";
-// import Tesseract from "tesseract.js";
+import { useEffect, useRef, useState } from "react";
 import axios from "axios";
-import "./App.css";
 
+import "./App.css";
+const slides = [
+  {
+    label: "✦ AI MEDICINE ANALYSIS",
+    title: "Understand your medicine data",
+    text: "Upload a clear medicine label and let MediBridge extract the important text.",
+    tags: ["Image OCR", "Fast Upload", "Easy to Use"],
+  },
+  {
+    label: "✦ SMART TEXT EXTRACTION",
+    title: "Read medicine labels quickly",
+    text: "Our OCR workflow identifies visible text from medicine packages and prescriptions.",
+    tags: ["Text Detection", "Image Preview", "Secure Upload"],
+  },
+  {
+    label: "✦ STRUCTURED INFORMATION",
+    title: "Turn images into useful details",
+    text: "Use extracted text to identify medicine names, salts, dosage, and other information.",
+    tags: ["Medicine Name", "Salt Details", "AI Analysis"],
+  },
+];
 function App() {
   const [image, setImage] = useState(null);
   const [imageFile, setImageFile] = useState(null);
   const [imageName, setImageName] = useState("");
   const [result, setResult] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+
+  const [currentSlide, setCurrentSlide] = useState(0);
+
+useEffect(() => {
+  const slider = setInterval(() => {
+    setCurrentSlide((previousSlide) =>
+      previousSlide === slides.length - 1 ? 0 : previousSlide + 1
+    );
+  }, 5000);
+
+  return () => clearInterval(slider);
+}, []);
 
   const fileInputRef = useRef(null);
 
@@ -36,12 +67,11 @@ function App() {
 
   try {
     const response = await axios.post(
-      "http://10.180.0.225:5173/api/extract",
+      "http://10.180.0.225:5000/api/extract",
       formData,
     );
-    console.log("my name");
-    console.log("ocr resopnse:",response.data);
-    setResult(response.data.text || "No readable text was found.");
+    const salts=response.data.salts;
+    setResult(salts.medicine+" was detected, salt(s) are : "+salts.salt|| "No readable text was found.");
   } catch (error) {
     console.error(error);
     setResult("Could not connect to the DeepSeek OCR API.");
@@ -88,26 +118,61 @@ function App() {
         </div>
       </header>
 
-      <section id="home" className="upload-hero">
-        <span className="hero-label">✦ AI MEDICINE ANALYSIS</span>
+      <section id="home" className="hero-carousel">
+  {slides.map((slide, index) => (
+    <article
+      key={slide.title}
+      className={`banner-slide ${index === currentSlide ? "active" : ""}`}
+    >
+      <span className="hero-label">{slide.label}</span>
 
-        {/* <h1>
-          Understand your <span>medicine</span> data
-        </h1> */}
+      <h1>
+        {slide.title.split(" ").slice(0, -1).join(" ")}{" "}
+        <span>{slide.title.split(" ").slice(-1)}</span>
+      </h1>
 
-        <h1> Scan your <span>medicine</span> data </h1>
+      <p>{slide.text}</p>
 
-        <p>
-          Upload a clear image of your medicine package, label, or prescription
-          to begin extracting its text.
-        </p>
+      <div className="feature-tags">
+        {slide.tags.map((tag) => (
+          <span key={tag}>{tag}</span>
+        ))}
+      </div>
+    </article>
+  ))}
 
-        <div className="feature-tags">
-          <span>Image OCR</span>
-          <span>AI Analysis</span>
-          <span>Structured Data</span>
-        </div>
-      </section>
+  <button
+    className="slide-button previous"
+    onClick={() =>
+      setCurrentSlide(
+        currentSlide === 0 ? slides.length - 1 : currentSlide - 1
+      )
+    }
+  >
+    ‹
+  </button>
+
+  <button
+    className="slide-button next"
+    onClick={() =>
+      setCurrentSlide(
+        currentSlide === slides.length - 1 ? 0 : currentSlide + 1
+      )
+    }
+  >
+    ›
+  </button>
+
+  <div className="slide-dots">
+    {slides.map((slide, index) => (
+      <button
+        key={slide.title}
+        className={index === currentSlide ? "dot active-dot" : "dot"}
+        onClick={() => setCurrentSlide(index)}
+      />
+    ))}
+  </div>
+</section>
 
       <section id="upload" className="upload-card">
         <div className="upload-card-heading">

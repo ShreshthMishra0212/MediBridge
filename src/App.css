@@ -359,3 +359,113 @@ button {
     gap: 14px;
   }
 }
+
+.hero-carousel {
+  position: relative;
+  width: min(88%, 1050px);
+  height: 390px;
+  margin: 34px auto 0;
+  overflow: hidden;
+  border-radius: 24px;
+}
+
+.banner-slide {
+  position: absolute;
+  inset: 0;
+  padding: 52px 70px;
+  background: linear-gradient(120deg, #071322, #092e38);
+  color: white;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(45px);
+  transition: opacity 0.5s ease, transform 0.5s ease;
+}
+
+.banner-slide.active {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateX(0);
+}
+
+.banner-slide h1 {
+  max-width: 630px;
+  margin: 18px 0 14px;
+  color: white;
+  font-size: clamp(32px, 5vw, 52px);
+  line-height: 1.1;
+}
+
+.banner-slide h1 span {
+  color: #34d4b6;
+}
+
+.banner-slide p {
+  max-width: 650px;
+  color: #b8c8d1;
+  line-height: 1.6;
+}
+
+.slide-button {
+  position: absolute;
+  top: 50%;
+  z-index: 2;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.14);
+  color: white;
+  cursor: pointer;
+  font-size: 31px;
+  line-height: 1;
+  transform: translateY(-50%);
+}
+
+.slide-button:hover {
+  background: #20bfa5;
+}
+
+.previous {
+  left: 18px;
+}
+
+.next {
+  right: 18px;
+}
+
+.slide-dots {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  display: flex;
+  gap: 9px;
+  transform: translateX(-50%);
+}
+
+.dot {
+  width: 9px;
+  height: 9px;
+  padding: 0;
+  border-radius: 50%;
+  background: #7b9399;
+  cursor: pointer;
+}
+
+.active-dot {
+  width: 25px;
+  border-radius: 10px;
+  background: #35d4b6;
+}
+
+@media (max-width: 650px) {
+  .hero-carousel {
+    height: 430px;
+  }
+
+  .banner-slide {
+    padding: 45px 35px;
+  }
+
+  .slide-button {
+    display: none;
+  }
+}
