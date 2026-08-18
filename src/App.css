@@ -1,0 +1,361 @@
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: #f5fbfb;
+  color: #132c38;
+}
+
+button {
+  border: 0;
+  font: inherit;
+}
+
+.upload-page {
+  min-height: 100vh;
+  padding-bottom: 56px;
+}
+
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 25px;
+  width: min(88%, 1050px);
+  margin: auto;
+  padding: 22px 0;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.brand-icon {
+  display: grid;
+  place-items: center;
+  width: 43px;
+  height: 43px;
+  border-radius: 12px;
+  background: #37d4b4;
+  font-size: 22px;
+}
+
+.brand strong {
+  display: block;
+  font-size: 20px;
+}
+
+.brand strong span {
+  color: #20c8ad;
+}
+
+.brand small {
+  display: block;
+  margin-top: 3px;
+  color: #7a8992;
+  font-size: 9px;
+  letter-spacing: 0.7px;
+}
+
+.nav-links {
+  display: flex;
+  gap: 24px;
+}
+
+.nav-links a {
+  color: #52646e;
+  font-size: 14px;
+  font-weight: bold;
+  text-decoration: none;
+}
+
+.nav-links a:hover {
+  color: #18b99e;
+}
+
+.status-area {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.online-status {
+  color: #71808a;
+  font-size: 12px;
+}
+
+.step-badge {
+  padding: 9px 15px;
+  border-radius: 20px;
+  background: #102234;
+  color: white;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.upload-hero,
+.upload-card,
+.info-section,
+.privacy-note {
+  width: min(88%, 1050px);
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.upload-hero {
+  margin-top: 34px;
+  padding: 52px 30px;
+  border-radius: 24px;
+  background: linear-gradient(120deg, #071322, #092e38);
+  color: white;
+}
+
+.hero-label {
+  color: #55dec6;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.upload-hero h1 {
+  max-width: 620px;
+  margin: 18px 0 14px;
+  color: white;
+  font-size: clamp(32px, 5vw, 52px);
+  line-height: 1.1;
+  text-align: left;
+}
+
+.upload-hero h1 span {
+  color: #34d4b6;
+}
+
+.upload-hero p {
+  max-width: 630px;
+  color: #b8c8d1;
+  line-height: 1.6;
+  text-align: left;
+}
+
+.feature-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 25px;
+}
+
+.feature-tags span {
+  padding: 10px 15px;
+  border-radius: 20px;
+  background: rgba(45, 205, 177, 0.12);
+  color: #55dec6;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.upload-card {
+  margin-top: 25px;
+  padding: 26px;
+  border: 1px solid #e1ebed;
+  border-radius: 18px;
+  background: white;
+  box-shadow: 0 8px 20px rgba(15, 62, 69, 0.05);
+}
+
+.upload-card-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.upload-card-heading small,
+.ocr-result small {
+  color: #83929a;
+  font-size: 10px;
+  font-weight: bold;
+  letter-spacing: 0.5px;
+}
+
+.upload-card-heading h2 {
+  margin: 7px 0 22px;
+  color: #132c38;
+  font-size: 21px;
+}
+
+.secure-tag {
+  color: #28b991;
+  font-size: 10px;
+  font-weight: bold;
+}
+
+.drop-zone {
+  display: grid;
+  justify-items: center;
+  padding: 48px 20px;
+  border: 2px dashed #9edfd2;
+  border-radius: 15px;
+  background: #f5fffc;
+  cursor: pointer;
+  text-align: center;
+}
+
+.drop-zone input {
+  display: none;
+}
+
+.upload-symbol {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: #ddfaf2;
+  color: #19ae92;
+  font-size: 31px;
+}
+
+.drop-zone strong {
+  margin-top: 15px;
+  font-size: 17px;
+}
+
+.drop-zone p {
+  color: #74838c;
+  font-size: 13px;
+}
+
+.browse-button,
+.action-buttons button {
+  padding: 12px 22px;
+  border-radius: 9px;
+  background: #159581;
+  color: white;
+  cursor: pointer;
+  font-size: 15px;
+}
+
+.browse-button {
+  margin-top: 8px;
+}
+
+.preview-section {
+  display: grid;
+  justify-items: center;
+  gap: 17px;
+}
+
+.file-name {
+  margin: 0;
+  color: #657780;
+  font-size: 13px;
+}
+
+.preview-image {
+  max-width: 100%;
+  max-height: 330px;
+  border: 1px solid #b9dfdc;
+  border-radius: 12px;
+}
+
+.action-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+}
+
+.action-buttons button:disabled {
+  background: #80b8ad;
+  cursor: not-allowed;
+}
+
+.action-buttons .remove-button {
+  background: #d85555;
+}
+
+.ocr-result {
+  margin-top: 25px;
+  padding-top: 22px;
+  border-top: 1px solid #e9eeee;
+}
+
+.ocr-result pre {
+  margin: 10px 0 0;
+  padding: 18px;
+  overflow: auto;
+  border-radius: 12px;
+  background: #0b1424;
+  color: #d8e1e8;
+  white-space: pre-wrap;
+  line-height: 1.7;
+}
+
+.info-section {
+  margin-top: 25px;
+  padding: 25px;
+  border-radius: 18px;
+  background: white;
+  text-align: center;
+}
+
+.info-section h2 {
+  margin-top: 0;
+  color: #132c38;
+}
+
+.info-section p {
+  margin-bottom: 0;
+  color: #657780;
+}
+
+.privacy-note {
+  margin-top: 20px;
+  color: #7a8992;
+  font-size: 12px;
+  text-align: center;
+}
+
+@media (max-width: 850px) {
+  .topbar {
+    flex-wrap: wrap;
+  }
+
+  .nav-links {
+    order: 3;
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 650px) {
+  .topbar {
+    align-items: flex-start;
+  }
+
+  .status-area {
+    flex-direction: column;
+    align-items: flex-end;
+  }
+
+  .upload-card-heading {
+    gap: 12px;
+  }
+
+  .secure-tag {
+    text-align: right;
+  }
+
+  .nav-links {
+    gap: 14px;
+  }
+}
