@@ -1,0 +1,186 @@
+.prescription-page {
+  min-height: 100vh;
+  padding-bottom: 60px;
+  background: #f5fbfb;
+  color: #132c38;
+}
+
+.prescription-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: min(88%, 1050px);
+  margin: auto;
+  padding: 24px 0;
+}
+
+.prescription-brand,
+.back-home {
+  color: #132c38;
+  font-weight: bold;
+  text-decoration: none;
+}
+
+.prescription-brand span {
+  color: #20c8ad;
+}
+
+.prescription-brand > span:first-child {
+  display: inline-grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  margin-right: 10px;
+  border-radius: 10px;
+  background: #35d4b6;
+  color: white;
+}
+
+.back-home {
+  color: #168f7d;
+}
+
+.prescription-hero,
+.document-card,
+.document-note {
+  width: min(88%, 850px);
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.prescription-hero {
+  margin-top: 30px;
+  padding: 48px;
+  border-radius: 22px;
+  background: linear-gradient(120deg, #071322, #092e38);
+  color: white;
+}
+
+.prescription-hero span {
+  color: #55dec6;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.prescription-hero h1 {
+  margin: 17px 0 12px;
+  color: white;
+  font-size: clamp(30px, 5vw, 46px);
+}
+
+.prescription-hero p {
+  max-width: 620px;
+  color: #b8c8d1;
+  line-height: 1.6;
+}
+
+.document-card {
+  margin-top: 25px;
+  padding: 28px;
+  border: 1px solid #e1ebed;
+  border-radius: 18px;
+  background: white;
+}
+
+.document-heading {
+  display: flex;
+  justify-content: space-between;
+}
+
+.document-heading small {
+  color: #83929a;
+  font-size: 10px;
+  font-weight: bold;
+}
+
+.document-heading h2 {
+  margin: 7px 0 22px;
+}
+
+.document-heading span {
+  color: #28b991;
+  font-size: 10px;
+  font-weight: bold;
+}
+
+.document-drop-zone {
+  display: grid;
+  justify-items: center;
+  padding: 48px 20px;
+  border: 2px dashed #9edfd2;
+  border-radius: 15px;
+  background: #f5fffc;
+  cursor: pointer;
+  text-align: center;
+}
+
+.document-drop-zone input {
+  display: none;
+}
+
+.document-icon {
+  font-size: 42px;
+}
+
+.document-drop-zone strong {
+  margin-top: 14px;
+  font-size: 17px;
+}
+
+.document-drop-zone p,
+.selected-document p {
+  color: #74838c;
+  font-size: 13px;
+}
+
+.choose-document,
+.upload-document-button {
+  margin-top: 10px;
+  padding: 12px 20px;
+  border: 0;
+  border-radius: 9px;
+  background: #159581;
+  color: white;
+  cursor: pointer;
+  font-size: 15px;
+}
+
+.selected-document {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 20px;
+  border-radius: 12px;
+  background: #effcf8;
+}
+
+.selected-document div {
+  flex: 1;
+}
+
+.selected-document p {
+  margin-bottom: 0;
+}
+
+.remove-document {
+  padding: 10px 16px;
+  border: 0;
+  border-radius: 8px;
+  background: #d85555;
+  color: white;
+  cursor: pointer;
+}
+
+.upload-document-button {
+  display: block;
+  width: 100%;
+  margin-top: 20px;
+}
+
+.document-note {
+  margin-top: 20px;
+  color: #7a8992;
+  font-size: 12px;
+  text-align: center;
+}
+
