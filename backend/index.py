@@ -1,17 +1,45 @@
-# app.py
 from flask import Flask, request, jsonify
-from huggingface_hub import InferenceClient
 from flask_cors import CORS
+from PIL import Image
+import requests
 import base64
-import os
+import io
 
 from med_salts import extract_meds_from_text
 
 app = Flask(__name__)
 CORS(app)
 
-HF_TOKEN = os.environ.get("HF_TOKEN")
-client = InferenceClient(token="HF_tk", provider="novita")
+NVIDIA_API_KEY = "nv-key"
+NVIDIA_OCR_URL = "https://ai.api.nvidia.com/v1/cv/nvidia/nemotron-ocr-v2"
+print("Key loaded:", NVIDIA_API_KEY[:10] if NVIDIA_API_KEY else "MISSING")
+def compress_image(image_bytes, max_size_kb=100):
+    img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+
+    max_dim = 1600
+    if max(img.size) > max_dim:
+        img.thumbnail((max_dim, max_dim))
+
+    quality = 85
+    buf = io.BytesIO()
+    while quality > 20:
+        buf = io.BytesIO()
+        img.save(buf, format="JPEG", quality=quality)
+        if buf.tell() <= max_size_kb * 1024:
+            break
+        quality -= 10
+
+    return buf.getvalue(), "image/jpeg"
+
+@app.route("/api/patient_history", methods=["POST"])
+def patient_prescriptions():
+    if "image" not in request.files:
+        return jsonify({"error": "No image file provided. Use form field 'image'."}), 400
+
+    file = request.files["image"]
+    image_bytes = file.read()
+
+
 
 @app.route("/api/extract", methods=["POST"])
 def extract_text():
@@ -21,36 +49,60 @@ def extract_text():
     file = request.files["image"]
     image_bytes = file.read()
 
-    try:
-        image_b64 = base64.b64encode(image_bytes).decode("utf-8")
-        mime = file.mimetype or "image/png"
+    image_bytes, mime = compress_image(image_bytes)
+    image_b64 = base64.b64encode(image_bytes).decode()
 
-        response = client.chat.completions.create(
-            model="deepseek-ai/DeepSeek-OCR",
-            messages=[
-                {
-                    "role": "user",
-                    "content": [
-                        {"type": "text", "text": "Extract all text from this image. Return only the english extracted text, nothing else."},
-                        {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{image_b64}"}}
-                    ]
-                }
-            ]
-        )
-        text = response.choices[0].message.content
+    if len(image_b64) >= 180_000:
+        return jsonify({"error": "Image still too large after compression."}), 413
+
+    headers = {
+        "Authorization": f"Bearer {NVIDIA_API_KEY}",
+        "Accept": "application/json"
+    }
+    payload = {
+        "input": [
+            {
+                "type": "image_url",
+                "url": f"data:{mime};base64,{image_b64}"
+            }
+        ]
+    }
+
+    try:
+        resp = requests.post(NVIDIA_OCR_URL, headers=headers, json=payload, timeout=30)
+        resp.raise_for_status()
+        result = resp.json()
     except Exception as e:
+        print("NVIDIA OCR ERROR:", repr(e))
+        if hasattr(e, "response") and e.response is not None:
+            print("Response body:", e.response.text)
         return jsonify({"error": f"OCR failed: {str(e)}"}), 502
+
+    text = extract_text_from_nvidia_response(result)
 
     matches = extract_meds_from_text(text)
 
-    salts = [
-        {"medicine": name, "salt": salt}
-        for name, salt in matches
-    ]
+    if not matches:
+        return jsonify({"error": "No known medicine detected in image.", "raw_ocr": text}), 404
 
-    return jsonify({
-        "salts": salts[0],
-    })
+    salts = [{"medicine": name, "salt": salt} for name, salt in matches]
+
+    return jsonify({"salts": salts[0]})
+
+
+def extract_text_from_nvidia_response(result):
+    try:
+        if "output" in result:
+            output = result["output"]
+            if isinstance(output, list) and len(output) > 0:
+                return output[0].get("text", "") or str(output[0])
+            return str(output)
+        if "text" in result:
+            return result["text"]
+        return str(result)
+    except Exception:
+        return str(result)
+
 
 @app.route("/", methods=["GET"])
 def health():
