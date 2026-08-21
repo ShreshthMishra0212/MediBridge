@@ -1,3 +1,4 @@
+import os
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from PIL import Image
@@ -31,14 +32,19 @@ def compress_image(image_bytes, max_size_kb=100):
 
     return buf.getvalue(), "image/jpeg"
 
-@app.route("/api/patient_history", methods=["POST"])
-def patient_prescriptions():
-    if "image" not in request.files:
-        return jsonify({"error": "No image file provided. Use form field 'image'."}), 400
 
-    file = request.files["image"]
-    image_bytes = file.read()
+@app.route("/upload",methods=["POST"])
+def prescription():
+    if not os.path.exists("history"):
+        os.makedirs("history")
+    name = request.args.get("fname")
 
+    file = request.files["file"]
+    file.save(f"history/{name}.pdf")
+
+    return jsonify({
+        "status":"recieved"
+    }), 200
 
 
 @app.route("/api/extract", methods=["POST"])
