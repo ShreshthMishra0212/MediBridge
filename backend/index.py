@@ -1,4 +1,5 @@
 import os
+from briefer import summarize_health_report
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from PIL import Image
@@ -11,7 +12,7 @@ from med_salts import extract_meds_from_text
 app = Flask(__name__)
 CORS(app)
 
-NVIDIA_API_KEY = "API_KEY"
+NVIDIA_API_KEY = "nvidia api key"
 NVIDIA_OCR_URL = "https://ai.api.nvidia.com/v1/cv/nvidia/nemotron-ocr-v2"
 print("Key loaded:", NVIDIA_API_KEY[:10] if NVIDIA_API_KEY else "MISSING")
 def compress_image(image_bytes, max_size_kb=100):
@@ -32,6 +33,36 @@ def compress_image(image_bytes, max_size_kb=100):
 
     return buf.getvalue(), "image/jpeg"
 
+@app.route("/brief_assist", methods=["GET"])
+def brief_assist():
+
+    p_id = request.args.get("fname")
+
+    if not p_id:
+        return jsonify({
+            "error": "fname is required"
+        }), 400
+
+    files = []
+
+    for f in os.listdir("history"):
+
+        if f.startswith(p_id + "_"):
+            files.append(
+                os.path.join("history", f)
+            )
+
+    if not files:
+        return jsonify({
+            "error": f"no patient history found associated to {p_id}"
+        }), 404
+
+    summary = summarize_health_report("", files)
+
+    return jsonify({
+        "status": "success",
+        "summary": summary
+    }), 200
 
 @app.route("/upload",methods=["POST"])
 def prescription():
@@ -47,6 +78,7 @@ def prescription():
     return jsonify({
         "status":"recieved"
     }), 200
+
 
 
 @app.route("/api/extract", methods=["POST"])
