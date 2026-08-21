@@ -1,4 +1,5 @@
 import os
+
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from PIL import Image
@@ -37,10 +38,12 @@ def compress_image(image_bytes, max_size_kb=100):
 def prescription():
     if not os.path.exists("history"):
         os.makedirs("history")
-    name = request.args.get("fname")
 
-    file = request.files["file"]
-    file.save(f"history/{name}.pdf")
+    name = request.args.get("fname")
+    files = request.files.getlist("files")
+
+    for i,file in enumerate(files):
+        file.save(f"history/{name}_{file.filename}")
 
     return jsonify({
         "status":"recieved"
