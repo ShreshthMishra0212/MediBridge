@@ -1,5 +1,4 @@
 import os
-
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from PIL import Image
@@ -12,7 +11,7 @@ from med_salts import extract_meds_from_text
 app = Flask(__name__)
 CORS(app)
 
-NVIDIA_API_KEY = "nv-key"
+NVIDIA_API_KEY = "API_KEY"
 NVIDIA_OCR_URL = "https://ai.api.nvidia.com/v1/cv/nvidia/nemotron-ocr-v2"
 print("Key loaded:", NVIDIA_API_KEY[:10] if NVIDIA_API_KEY else "MISSING")
 def compress_image(image_bytes, max_size_kb=100):
