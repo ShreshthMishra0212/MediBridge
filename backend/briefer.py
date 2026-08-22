@@ -1,3 +1,4 @@
+import os
 import time
 import json
 from google import genai
@@ -5,8 +6,37 @@ from google import genai
 
 # Initialize Gemini client
 client = genai.Client(
-    api_key="api"
+    api_key="api_key"
 )
+
+
+def empty_result():
+    return {
+        "summary": {
+            "english": "",
+            "hindi": ""
+        },
+        "duration": {
+            "english": "",
+            "hindi": ""
+        },
+        "purpose": {
+            "english": "",
+            "hindi": ""
+        },
+        "instruction": {
+            "english": "",
+            "hindi": ""
+        },
+        "precaution": {
+            "english": "",
+            "hindi": ""
+        },
+        "medicines": {
+            "english": "",
+            "hindi": ""
+        }
+    }
 
 
 def summarize_health_report(report_text="", file_paths=None):
@@ -15,21 +45,18 @@ def summarize_health_report(report_text="", file_paths=None):
     file_paths = file_paths or []
 
     if not report_text.strip() and not file_paths:
-        return {
-            "summary": "",
-            "duration": "",
-            "purpose": "",
-            "instruction": "",
-            "precaution": "",
-            "medicines": ""
-        }
+        return empty_result()
 
     contents = []
 
-    # Upload all files
+    # --------------------------------------------------
+    # Upload all medical documents
+    # --------------------------------------------------
+
     for file_path in file_paths:
 
         try:
+
             uploaded_file = client.files.upload(
                 file=file_path
             )
@@ -37,45 +64,77 @@ def summarize_health_report(report_text="", file_paths=None):
             contents.append(uploaded_file)
 
         except Exception as e:
-            return {
-                "summary": f"File processing error: {str(e)}",
-                "duration": "",
-                "purpose": "",
-                "instruction": "",
-                "precaution": "",
-                "medicines": ""
-            }
+
+            result = empty_result()
+
+            result["summary"]["english"] = (
+                f"File processing error: {str(e)}"
+            )
+
+            result["summary"]["hindi"] = (
+                f"फाइल प्रोसेस करने में त्रुटि: {str(e)}"
+            )
+
+            return result
+
+    # --------------------------------------------------
+    # Prompt
+    # --------------------------------------------------
 
     prompt = f"""
 You are an expert medical report simplifier.
 
-Analyze ALL provided medical documents/images together with the
-patient-provided text.
+Analyze ALL provided medical documents/images together with
+the patient-provided text.
 
 TEXT INPUT:
 {report_text}
 
 Your task is to summarize the provided medical information
-in simple plain English.
+in simple plain English and Hindi.
 
 IMPORTANT RULES:
 
 1. Do not invent information.
+
 2. Do not invent symptoms, diagnoses, medicines, durations,
    dosages, precautions, or medical history.
+
 3. If information is not present, use an empty string.
-4. Do not provide a definitive diagnosis.
-5. Only recommend a medical specialist when the patient's
-   stated problem clearly indicates the relevant specialty.
-6. Medicines must only contain medicines explicitly present
-   in the provided prescription/report.
-7. Preserve medicine names and dosage information when clearly
-   available.
+
+4. Do not provide a definitive medical diagnosis.
+
+5. If the patient only describes a health problem and no
+   medical report is provided, recommend the appropriate
+   medical specialist when clearly indicated.
+
+   Examples:
+   eye problem -> ophthalmologist
+   stomach/digestive problem -> gastroenterologist
+   skin problem -> dermatologist
+   heart-related problem -> cardiologist
+
+6. Medicines must ONLY contain medicines explicitly present
+   in the provided prescription or medical document.
+
+7. Preserve medicine names and dosage information when
+   clearly available.
+
 8. Do not add medical information that is not present.
-9. Do not use markdown.
-10. Do not use special formatting.
-11. Return ONLY valid JSON.
-12. The JSON must contain EXACTLY these six keys:
+
+9. Keep the English text simple and easy to understand.
+
+10. Hindi should be a natural and easy-to-understand Hindi
+    translation of the English information.
+
+11. Do not use markdown.
+
+12. Do not use special formatting inside the values.
+
+13. Return ONLY valid JSON.
+
+14. The JSON must contain EXACTLY these six keys:
+
     summary
     duration
     purpose
@@ -83,24 +142,51 @@ IMPORTANT RULES:
     precaution
     medicines
 
+15. Every key must contain exactly two keys:
+
+    english
+    hindi
+
+16. If multiple medicines exist, put them in the medicines
+    field as a comma-separated string.
+
 OUTPUT FORMAT:
 
 {{
-    "summary": "Brief summary of the patient's report or problem.",
-    "duration": "Duration mentioned in the report, or empty string.",
-    "purpose": "Purpose of medicines/tests/treatment if explicitly available.",
-    "instruction": "Instructions explicitly provided by the doctor/report.",
-    "precaution": "Precautions explicitly provided by the doctor/report.",
-    "medicines": "Medicines prescribed by the doctor, including dosage if available."
+    "summary": {{
+        "english": "...",
+        "hindi": "..."
+    }},
+    "duration": {{
+        "english": "...",
+        "hindi": "..."
+    }},
+    "purpose": {{
+        "english": "...",
+        "hindi": "..."
+    }},
+    "instruction": {{
+        "english": "...",
+        "hindi": "..."
+    }},
+    "precaution": {{
+        "english": "...",
+        "hindi": "..."
+    }},
+    "medicines": {{
+        "english": "...",
+        "hindi": "..."
+    }}
 }}
-
-If multiple medicines exist, put them in the medicines field
-as a simple comma-separated string.
 
 Return ONLY the JSON object.
 """
 
     contents.append(prompt)
+
+    # --------------------------------------------------
+    # Gemini request
+    # --------------------------------------------------
 
     max_retries = 3
 
@@ -119,7 +205,7 @@ Return ONLY the JSON object.
             if text.startswith("```json"):
                 text = text[7:]
 
-            if text.startswith("```"):
+            elif text.startswith("```"):
                 text = text[3:]
 
             if text.endswith("```"):
@@ -129,32 +215,55 @@ Return ONLY the JSON object.
 
             result = json.loads(text)
 
-            # Make sure exactly the fields we want are returned
-            return {
-                "summary": result.get("summary", ""),
-                "duration": result.get("duration", ""),
-                "purpose": result.get("purpose", ""),
-                "instruction": result.get("instruction", ""),
-                "precaution": result.get("precaution", ""),
-                "medicines": result.get("medicines", "")
-            }
+            # --------------------------------------------------
+            # Force the exact structure we want
+            # --------------------------------------------------
+
+            final_result = empty_result()
+
+            for field in [
+                "summary",
+                "duration",
+                "purpose",
+                "instruction",
+                "precaution",
+                "medicines"
+            ]:
+
+                if isinstance(result.get(field), dict):
+
+                    final_result[field]["english"] = result[field].get(
+                        "english", ""
+                    )
+
+                    final_result[field]["hindi"] = result[field].get(
+                        "hindi", ""
+                    )
+
+            return final_result
 
         except json.JSONDecodeError:
 
-            return {
-                "summary": "Unable to parse AI summary.",
-                "duration": "",
-                "purpose": "",
-                "instruction": "",
-                "precaution": "",
-                "medicines": ""
-            }
+            result = empty_result()
+
+            result["summary"]["english"] = (
+                "Unable to parse AI summary."
+            )
+
+            result["summary"]["hindi"] = (
+                "AI सारांश को पढ़ने में असमर्थ।"
+            )
+
+            return result
 
         except Exception as e:
 
             error_message = str(e)
 
-            if "503" in error_message or "UNAVAILABLE" in error_message:
+            if (
+                "503" in error_message
+                or "UNAVAILABLE" in error_message
+            ):
 
                 if attempt < max_retries - 1:
 
@@ -169,22 +278,30 @@ Return ONLY the JSON object.
 
                 else:
 
-                    return {
-                        "summary": "Gemini is temporarily unavailable.",
-                        "duration": "",
-                        "purpose": "",
-                        "instruction": "",
-                        "precaution": "",
-                        "medicines": ""
-                    }
+                    result = empty_result()
+
+                    result["summary"]["english"] = (
+                        "Gemini is temporarily unavailable. "
+                        "Please try again later."
+                    )
+
+                    result["summary"]["hindi"] = (
+                        "Gemini फिलहाल उपलब्ध नहीं है। "
+                        "कृपया बाद में पुनः प्रयास करें।"
+                    )
+
+                    return result
 
             else:
 
-                return {
-                    "summary": f"API Error: {error_message}",
-                    "duration": "",
-                    "purpose": "",
-                    "instruction": "",
-                    "precaution": "",
-                    "medicines": ""
-                }
+                result = empty_result()
+
+                result["summary"]["english"] = (
+                    f"API Error: {error_message}"
+                )
+
+                result["summary"]["hindi"] = (
+                    f"API त्रुटि: {error_message}"
+                )
+
+                return result
