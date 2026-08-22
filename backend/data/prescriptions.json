@@ -1,0 +1,49 @@
+[
+    {
+        "id": "d398e0b0-4b4c-4b06-b267-50bc28c79175",
+        "appointment_id": "b0844f55-b6f0-4276-af4d-c5a17e6eb336",
+        "doctor_id": "28c8c3fb-8b2a-4c9d-a4da-02ee3068b33d",
+        "doctor_name": "Dr Test Rahul",
+        "specialization": null,
+        "patient_id": "3576a68d-baa6-43ad-b614-fa3df593b1c7",
+        "patient_name": "Shreshth Mishra",
+        "date": "2026-08-28",
+        "diagnosis": "Viral fever",
+        "medicines": [
+            {
+                "name": "Paracetamol",
+                "dosage": "500 mg",
+                "frequency": "Twice daily",
+                "duration": "5 days",
+                "instructions": "Take after meals"
+            }
+        ],
+        "advice": "Drink plenty of water and take adequate rest.",
+        "follow_up_date": "2026-09-05",
+        "pdf": "prescriptions/d398e0b0-4b4c-4b06-b267-50bc28c79175.pdf",
+        "docx": "prescriptions/d398e0b0-4b4c-4b06-b267-50bc28c79175.docx"
+    },
+    {
+        "id": "9bb2bf76-4f1c-4c9b-9826-29b46ae11968",
+        "appointment_id": "823d2008-7223-4da2-aa87-5880d5f6b499",
+        "doctor_id": "c2aa625e-f7b0-4798-a78a-d16c487223d9",
+        "doctor_name": "Test Doctor",
+        "specialization": "Cardiologist",
+        "patient_id": "cb43e938-73db-4ba2-94ea-1d68dab4cfe7",
+        "patient_name": "Test Patient",
+        "date": "2026-08-25",
+        "diagnosis": "Hypertension",
+        "medicines": [
+            {
+                "frequency": "Once daily",
+                "dosage": "5 mg",
+                "name": "Amlodipine",
+                "duration": "30 days"
+            }
+        ],
+        "advice": "Take medicine after breakfast. Monitor blood pressure regularly.",
+        "follow_up_date": "2026-09-25",
+        "pdf": "prescriptions/9bb2bf76-4f1c-4c9b-9826-29b46ae11968.pdf",
+        "docx": "prescriptions/9bb2bf76-4f1c-4c9b-9826-29b46ae11968.docx"
+    }
+]

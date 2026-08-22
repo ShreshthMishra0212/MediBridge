@@ -1,0 +1,55 @@
+[
+    {
+        "id": "929f3528-407b-4f27-977b-3c75a7dfac70",
+        "name": "Aman",
+        "email": "aman@gmail.com",
+        "age": 20,
+        "gender": "Male",
+        "phone": "9876543210",
+        "address": "Noida",
+        "medical_history": [],
+        "prescriptions": [],
+        "medical_documents": []
+    },
+    {
+        "id": "1bf5fe1b-512a-4514-885b-92244813a655",
+        "name": "Test Patient",
+        "email": "patienttest@gmail.com",
+        "age": null,
+        "gender": null,
+        "phone": null,
+        "address": null,
+        "medical_history": [],
+        "prescriptions": []
+    },
+    {
+        "id": "3576a68d-baa6-43ad-b614-fa3df593b1c7",
+        "name": "Shreshth Mishra",
+        "email": "shreshthmishraaa12@gmail.com",
+        "age": null,
+        "gender": null,
+        "phone": null,
+        "address": null,
+        "medical_history": [],
+        "prescriptions": []
+    },
+    {
+        "id": "cb43e938-73db-4ba2-94ea-1d68dab4cfe7",
+        "name": "Test Patient",
+        "email": "testpatient2026@example.com",
+        "age": 20,
+        "gender": "Male",
+        "phone": "9999999999",
+        "address": "Test Address",
+        "medical_history": [],
+        "prescriptions": [],
+        "medical_documents": [
+            {
+                "id": "a2771c04-499b-4304-ba2b-7f4142230469",
+                "original_name": "patient-prescription.pdf",
+                "filename": "a2771c04-499b-4304-ba2b-7f4142230469.pdf",
+                "path": "uploads/a2771c04-499b-4304-ba2b-7f4142230469.pdf"
+            }
+        ]
+    }
+]
