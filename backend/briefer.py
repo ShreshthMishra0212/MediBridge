@@ -5,7 +5,7 @@ from google import genai
 
 # Initialize Gemini client
 client = genai.Client(
-    api_key="google api key"
+    api_key="api"
 )
 
 
