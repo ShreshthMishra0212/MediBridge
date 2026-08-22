@@ -5,14 +5,15 @@ from flask_cors import CORS
 from PIL import Image
 import requests
 import base64
+import datetime
 import io
-
+from meeting_generator import create_google_meet
 from med_salts import extract_meds_from_text
 
 app = Flask(__name__)
 CORS(app)
 
-NVIDIA_API_KEY = "api_key"
+NVIDIA_API_KEY = "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"
 NVIDIA_OCR_URL = "https://ai.api.nvidia.com/v1/cv/nvidia/nemotron-ocr-v2"
 print("Key loaded:", NVIDIA_API_KEY[:10] if NVIDIA_API_KEY else "MISSING")
 def compress_image(image_bytes, max_size_kb=100):
@@ -153,6 +154,49 @@ def extract_text_from_nvidia_response(result):
     except Exception:
         return str(result)
 
+@app.route("/api/create-meet", methods=["POST"])
+def create_meet():
+    data = request.get_json(silent=True) or {}
+    start_time_str = data.get("start_time")
+
+    if not start_time_str:
+        return jsonify({"error": "start_time is required (ISO 8601 format, e.g. 2026-08-22T15:00:00)"}), 400
+
+    try:
+        start_time = datetime.datetime.fromisoformat(start_time_str)
+    except ValueError:
+        return jsonify({"error": "Invalid start_time format. Use ISO 8601, e.g. 2026-08-22T15:00:00"}), 400
+
+    title = data.get("title", "Quick Meeting")
+    duration_minutes = data.get("duration_minutes", 60)
+
+    try:
+        result = create_google_meet(start_time, title=title, duration_minutes=duration_minutes)
+    except Exception as e:
+        return jsonify({"error": f"Failed to create meeting: {str(e)}"}), 502
+
+    return jsonify({
+        "join_url": result["join_url"],
+        "event_id": result["event_id"],
+        "start_time": result["start_time"].isoformat(),
+        "expires_at": result["expires_at"].isoformat()
+    })
+
+@app.route("/api/check-status", methods=["GET"])
+def check_status():
+    expires_at_str = request.args.get("expires_at")
+
+    if not expires_at_str:
+        return jsonify({"error": "expires_at query param is required"}), 400
+
+    try:
+        expires_at = datetime.datetime.fromisoformat(expires_at_str)
+    except ValueError:
+        return jsonify({"error": "Invalid expires_at format"}), 400
+
+    is_expired = datetime.datetime.utcnow() >= expires_at
+
+    return jsonify({"expired": is_expired})
 
 @app.route("/", methods=["GET"])
 def health():
