@@ -12,7 +12,7 @@ from med_salts import extract_meds_from_text
 app = Flask(__name__)
 CORS(app)
 
-NVIDIA_API_KEY = "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"
+NVIDIA_API_KEY = "nvapi"
 NVIDIA_OCR_URL = "https://ai.api.nvidia.com/v1/cv/nvidia/nemotron-ocr-v2"
 print("Key loaded:", NVIDIA_API_KEY[:10] if NVIDIA_API_KEY else "MISSING")
 def compress_image(image_bytes, max_size_kb=100):
