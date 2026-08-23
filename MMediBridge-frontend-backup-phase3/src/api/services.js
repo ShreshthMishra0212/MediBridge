@@ -65,22 +65,6 @@ export const patientApi = {
     const response = await client.get("/api/patients/prescriptions");
     return response.data; // { prescriptions }
   },
-  downloadPrescriptionPdf: async (prescriptionId) => {
-    const response = await client.get(`/api/patients/prescriptions/${prescriptionId}/pdf`, {
-      responseType: "blob",
-    });
-    return response.data; // Binary PDF blob
-  },
-  downloadPrescriptionDocx: async (prescriptionId) => {
-    const response = await client.get(`/api/patients/prescriptions/${prescriptionId}/docx`, {
-      responseType: "blob",
-    });
-    return response.data; // Binary DOCX blob
-  },
-  aiRecommendSpecialty: async (symptoms) => {
-    const response = await client.post("/api/patients/ai-recommend-specialty", { symptoms });
-    return response.data; // { specialty, reasoning, reasoning_hindi, matching_doctor_count }
-  },
 };
 
 // ==========================================
@@ -124,24 +108,6 @@ export const doctorApi = {
   getPrescriptions: async () => {
     const response = await client.get("/api/doctors/prescriptions");
     return response.data; // { prescriptions }
-  },
-  downloadPrescriptionFile: async (prescriptionId, fileType) => {
-    const response = await client.get(`/api/doctors/prescriptions/${prescriptionId}/file/${fileType}`, {
-      responseType: "blob",
-    });
-    return response.data; // Binary file blob
-  },
-  getMyPatients: async () => {
-    const response = await client.get("/api/doctors/my-patients");
-    return response.data; // { patients: [{ id, name }] }
-  },
-  getPatientHistory: async (patientId) => {
-    const response = await client.get(`/api/doctors/patient/${patientId}/history`);
-    return response.data; // { patient, prescriptions, appointments }
-  },
-  generateAiBrief: async (patientId) => {
-    const response = await client.post(`/api/doctors/patient/${patientId}/ai-brief`);
-    return response.data; // { brief: { english: {...}, hindi: {...} }, patient_name, disclaimer }
   },
 };
 

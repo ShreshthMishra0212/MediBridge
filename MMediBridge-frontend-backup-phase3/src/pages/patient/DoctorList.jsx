@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { patientApi } from "../../api/services";
-import { Search, MapPin, Award, Star, BrainCircuit, Volume2, VolumeX, Languages } from "lucide-react";
-import { useSpeech } from "../../hooks/useSpeech";
+import { Search, MapPin, Award, Star } from "lucide-react";
 
 export const DoctorList = () => {
   const [doctors, setDoctors] = useState([]);
@@ -19,14 +18,6 @@ export const DoctorList = () => {
   const [bookingLoading, setBookingLoading] = useState(false);
   const [bookingSuccess, setBookingSuccess] = useState("");
   const [bookingError, setBookingError] = useState("");
-
-  // AI Doctor Finder State
-  const [symptoms, setSymptoms] = useState("");
-  const [aiLoading, setAiLoading] = useState(false);
-  const [aiResult, setAiResult] = useState(null);
-  const [aiError, setAiError] = useState("");
-  const [aiLang, setAiLang] = useState("en");
-  const { toggle, speaking, currentLang, stop } = useSpeech();
 
   const fetchDoctors = async () => {
     try {
@@ -46,31 +37,6 @@ export const DoctorList = () => {
 
   // Extract unique specialties for filtering chips
   const specialties = ["All", ...new Set(doctors.map((d) => d.specialization).filter(Boolean))];
-
-  // AI Doctor Recommendation Handler
-  const handleAiRecommend = async () => {
-    if (!symptoms.trim()) {
-      setAiError("Please describe your health problem first.");
-      return;
-    }
-    setAiLoading(true);
-    setAiError("");
-    setAiResult(null);
-    stop();
-    try {
-      const response = await patientApi.aiRecommendSpecialty(symptoms);
-      setAiResult(response);
-      // Auto-set specialty filter to recommended specialty
-      if (response.specialty) {
-        setSpecialty(response.specialty);
-      }
-    } catch (err) {
-      console.error(err);
-      setAiError(err.response?.data?.error || "AI analysis failed. Please try again or use the manual filter.");
-    } finally {
-      setAiLoading(false);
-    }
-  };
 
   // Local Search & Filtering
   const filteredDoctors = doctors.filter((doc) => {
@@ -125,95 +91,6 @@ export const DoctorList = () => {
   return (
     <div>
       {error && <div className="alert alert-danger">{error}</div>}
-
-      {/* AI Doctor Finder Section */}
-      <div className="card" style={{ marginBottom: "30px", borderLeft: "4px solid var(--primary)" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "12px" }}>
-          <BrainCircuit size={22} className="text-primary" />
-          <h3 style={{ margin: 0 }}>AI Doctor Finder</h3>
-        </div>
-        <p className="text-muted" style={{ marginBottom: "16px", fontSize: "0.85rem" }}>
-          Describe your health problem and our AI will recommend the right specialist for you.
-        </p>
-
-        <textarea
-          value={symptoms}
-          onChange={(e) => setSymptoms(e.target.value)}
-          placeholder="Example: I have frequent skin rashes and irritation on my arms..."
-          className="form-control"
-          rows={3}
-          style={{ resize: "vertical", marginBottom: "12px" }}
-          disabled={aiLoading}
-        />
-
-        {aiError && <div className="alert alert-danger" style={{ marginBottom: "12px" }}>{aiError}</div>}
-
-        <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
-          <button
-            onClick={handleAiRecommend}
-            className="btn btn-primary"
-            style={{ width: "auto", padding: "10px 24px" }}
-            disabled={aiLoading || !symptoms.trim()}
-          >
-            {aiLoading ? (
-              <><span className="spinner"></span> Analyzing...</>
-            ) : (
-              <><BrainCircuit size={16} /> Find Doctor Type</>
-            )}
-          </button>
-
-          {aiResult && (
-            <button
-              onClick={() => { setAiResult(null); setSpecialty(""); stop(); }}
-              className="btn btn-outline"
-              style={{ width: "auto", padding: "10px 16px" }}
-            >
-              Clear Result
-            </button>
-          )}
-        </div>
-
-        {/* AI Result Display */}
-        {aiResult && (
-          <div style={{ marginTop: "20px", padding: "16px", backgroundColor: "var(--primary-light)", borderRadius: "8px" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
-              <div>
-                <small className="text-muted" style={{ fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                  Recommended Specialist
-                </small>
-                <h4 style={{ margin: "4px 0 0", color: "var(--primary)" }}>
-                  {aiResult.specialty}
-                </h4>
-                <small className="text-muted">
-                  {aiResult.matching_doctor_count} doctor{aiResult.matching_doctor_count !== 1 ? "s" : ""} available
-                </small>
-              </div>
-              <div style={{ display: "flex", gap: "8px" }}>
-                <button
-                  onClick={() => setAiLang(aiLang === "en" ? "hi" : "en")}
-                  className="btn btn-outline"
-                  style={{ width: "auto", padding: "6px 10px", fontSize: "0.75rem" }}
-                >
-                  <Languages size={14} /> {aiLang === "en" ? "हिंदी" : "English"}
-                </button>
-                <button
-                  onClick={() => toggle(
-                    aiLang === "en" ? aiResult.reasoning : aiResult.reasoning_hindi,
-                    aiLang
-                  )}
-                  className="btn btn-secondary"
-                  style={{ width: "auto", padding: "6px 10px", fontSize: "0.75rem" }}
-                >
-                  {speaking && currentLang === aiLang ? <><VolumeX size={14} /> Stop</> : <><Volume2 size={14} /> {aiLang === "hi" ? "सुनें" : "Listen"}</>}
-                </button>
-              </div>
-            </div>
-            <p style={{ margin: 0, fontSize: "0.9rem" }}>
-              {aiLang === "en" ? aiResult.reasoning : aiResult.reasoning_hindi}
-            </p>
-          </div>
-        )}
-      </div>
 
       <div className="card" style={{ marginBottom: "30px" }}>
         <h3>Find a Consultant Specialist</h3>

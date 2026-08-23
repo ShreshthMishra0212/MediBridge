@@ -45,5 +45,53 @@
         "follow_up_date": "2026-09-25",
         "pdf": "prescriptions/9bb2bf76-4f1c-4c9b-9826-29b46ae11968.pdf",
         "docx": "prescriptions/9bb2bf76-4f1c-4c9b-9826-29b46ae11968.docx"
+    },
+    {
+        "id": "3e3edbf9-1142-4d70-940e-23ad46ef694d",
+        "appointment_id": "08d8a99a-6609-45cd-8b66-97d254b6f3c4",
+        "doctor_id": "2da10b3c-1afd-408e-95dc-db1dc6ebe582",
+        "doctor_name": "Dr. Smith Tester",
+        "specialization": "Cardiologist",
+        "patient_id": "10965bdf-0d89-4b05-a925-76c0ef0fd90a",
+        "patient_name": "John Tester",
+        "date": "2026-09-01",
+        "diagnosis": "Healthy, slight checkup needed",
+        "medicines": [
+            {
+                "name": "Vitamin C",
+                "dosage": "500 mg",
+                "frequency": "Once daily",
+                "duration": "30 days",
+                "instructions": "Take after breakfast"
+            }
+        ],
+        "advice": "Eat fruits and drink water",
+        "follow_up_date": "2026-10-01",
+        "pdf": "prescriptions/3e3edbf9-1142-4d70-940e-23ad46ef694d.pdf",
+        "docx": "prescriptions/3e3edbf9-1142-4d70-940e-23ad46ef694d.docx"
+    },
+    {
+        "id": "c5ddeac8-de7c-4a9d-8e13-e6236c2e00be",
+        "appointment_id": "9037b2bd-257d-4c03-a390-ba364698fd07",
+        "doctor_id": "dbbf5d34-f46c-4984-b3c3-71e55939740f",
+        "doctor_name": "bhondu",
+        "specialization": null,
+        "patient_id": "f799067a-92f2-45c6-acca-8ad81ae62763",
+        "patient_name": "prankit",
+        "date": "2026-08-23",
+        "diagnosis": "cancer",
+        "medicines": [
+            {
+                "name": "combiflame",
+                "dosage": "1",
+                "frequency": "23",
+                "duration": "2",
+                "instructions": "ccvv"
+            }
+        ],
+        "advice": "ffwfwefwe",
+        "follow_up_date": "2026-08-27",
+        "pdf": "prescriptions/c5ddeac8-de7c-4a9d-8e13-e6236c2e00be.pdf",
+        "docx": "prescriptions/c5ddeac8-de7c-4a9d-8e13-e6236c2e00be.docx"
     }
 ]

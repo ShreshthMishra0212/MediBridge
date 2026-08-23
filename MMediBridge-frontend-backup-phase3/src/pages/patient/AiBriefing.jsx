@@ -1,8 +1,7 @@
 import { useState } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { directApi } from "../../api/services";
-import { BrainCircuit, Upload, FileText, CheckCircle2, Languages, Volume2, VolumeX } from "lucide-react";
-import { useSpeech } from "../../hooks/useSpeech";
+import { BrainCircuit, Upload, FileText, CheckCircle2, Languages } from "lucide-react";
 
 export const AiBriefing = () => {
   const { user } = useAuth();
@@ -15,21 +14,6 @@ export const AiBriefing = () => {
   const [brief, setBrief] = useState(null);
   const [generating, setGenerating] = useState(false);
   const [lang, setLang] = useState("english"); // 'english' or 'hindi'
-  const { toggle, speaking, currentLang, stop } = useSpeech();
-
-  const getFullBriefText = (selectedLang) => {
-    if (!brief) return "";
-    const b = brief.languages?.[selectedLang] || brief;
-    const parts = [
-      b.summary ? `Summary: ${b.summary}` : "",
-      b.purpose ? `Purpose: ${b.purpose}` : "",
-      b.medicines ? `Medicines: ${b.medicines}` : "",
-      b.precaution ? `Precautions: ${b.precaution}` : "",
-      b.instruction ? `Instructions: ${b.instruction}` : "",
-      b.duration ? `Duration: ${b.duration}` : "",
-    ];
-    return parts.filter(Boolean).join(". ");
-  };
 
   const handleFileChange = (e) => {
     setFiles(Array.from(e.target.files));
@@ -161,34 +145,14 @@ export const AiBriefing = () => {
             </h4>
 
             {brief && (
-              <div style={{ display: "flex", gap: "8px" }}>
-                <button
-                  onClick={() => {
-                    const nextLang = lang === "english" ? "hindi" : "english";
-                    setLang(nextLang);
-                    stop();
-                  }}
-                  className="btn btn-outline"
-                  style={{ width: "auto", padding: "6px 12px", fontSize: "0.8rem", display: "flex", alignItems: "center", gap: "4px" }}
-                >
-                  <Languages size={14} />
-                  <span>Switch to {lang === "english" ? "Hindi" : "English"}</span>
-                </button>
-                <button
-                  onClick={() => {
-                    const speechLang = lang === "hindi" ? "hi" : "en";
-                    toggle(getFullBriefText(lang), speechLang);
-                  }}
-                  className="btn btn-secondary"
-                  style={{ width: "auto", padding: "6px 12px", fontSize: "0.8rem", display: "flex", alignItems: "center", gap: "4px" }}
-                >
-                  {speaking && currentLang === (lang === "hindi" ? "hi" : "en") ? (
-                    <><VolumeX size={14} /> Stop</>
-                  ) : (
-                    <><Volume2 size={14} /> {lang === "hindi" ? "सुनें" : "Listen"}</>
-                  )}
-                </button>
-              </div>
+              <button
+                onClick={() => setLang(lang === "english" ? "hindi" : "english")}
+                className="btn btn-outline"
+                style={{ width: "auto", padding: "6px 12px", fontSize: "0.8rem", display: "flex", alignItems: "center", gap: "4px" }}
+              >
+                <Languages size={14} />
+                <span>Switch to {lang === "english" ? "Hindi" : "English"}</span>
+              </button>
             )}
           </div>
 
@@ -212,42 +176,42 @@ export const AiBriefing = () => {
                 <div className="card ai-card">
                   <small className="text-muted" style={{ fontWeight: 600 }}>SUMMARY BRIEF</small>
                   <p style={{ marginTop: "6px", fontSize: "0.95rem" }}>
-                    {brief.languages?.[lang]?.summary || brief.summary || "No brief available."}
+                    {lang === "english" ? brief.summary?.english : brief.summary?.hindi || "No brief available."}
                   </p>
                 </div>
 
                 <div className="card ai-card" style={{ borderLeftColor: "var(--secondary)" }}>
                   <small className="text-muted" style={{ fontWeight: 600 }}>PURPOSE & SPECIALIST</small>
                   <p style={{ marginTop: "6px", fontSize: "0.95rem" }}>
-                    {brief.languages?.[lang]?.purpose || brief.purpose || "Not specified."}
+                    {lang === "english" ? brief.purpose?.english : brief.purpose?.hindi || "Not specified."}
                   </p>
                 </div>
 
                 <div className="card ai-card" style={{ borderLeftColor: "var(--warning)" }}>
                   <small className="text-muted" style={{ fontWeight: 600 }}>MEDICINES IDENTIFIED</small>
                   <p style={{ marginTop: "6px", fontSize: "0.95rem", fontWeight: 600 }}>
-                    {brief.languages?.[lang]?.medicines || brief.medicines || "None identified."}
+                    {lang === "english" ? brief.medicines?.english : brief.medicines?.hindi || "None identified."}
                   </p>
                 </div>
 
                 <div className="card ai-card" style={{ borderLeftColor: "var(--danger)" }}>
                   <small className="text-muted" style={{ fontWeight: 600 }}>PRECAUTIONS</small>
                   <p style={{ marginTop: "6px", fontSize: "0.95rem" }}>
-                    {brief.languages?.[lang]?.precaution || brief.precaution || "None listed."}
+                    {lang === "english" ? brief.precaution?.english : brief.precaution?.hindi || "None listed."}
                   </p>
                 </div>
 
                 <div className="card ai-card" style={{ borderLeftColor: "purple" }}>
                   <small className="text-muted" style={{ fontWeight: 600 }}>DOSAGE INSTRUCTIONS</small>
                   <p style={{ marginTop: "6px", fontSize: "0.95rem" }}>
-                    {brief.languages?.[lang]?.instruction || brief.instruction || "None listed."}
+                    {lang === "english" ? brief.instruction?.english : brief.instruction?.hindi || "None listed."}
                   </p>
                 </div>
 
                 <div className="card ai-card" style={{ borderLeftColor: "teal" }}>
                   <small className="text-muted" style={{ fontWeight: 600 }}>DURATION</small>
                   <p style={{ marginTop: "6px", fontSize: "0.95rem" }}>
-                    {brief.languages?.[lang]?.duration || brief.duration || "Not specified."}
+                    {lang === "english" ? brief.duration?.english : brief.duration?.hindi || "Not specified."}
                   </p>
                 </div>
               </div>

@@ -6,7 +6,6 @@ import {
   Calendar, 
   FileText, 
   ClipboardList, 
-  BrainCircuit,
   LogOut 
 } from "lucide-react";
 
@@ -19,7 +18,6 @@ export const DoctorLayout = () => {
     { name: "Dashboard", path: "/doctor", icon: <LayoutDashboard size={20} /> },
     { name: "Today's Schedule", path: "/doctor/appointments", icon: <Calendar size={20} /> },
     { name: "Appointment Requests", path: "/doctor/requests", icon: <ClipboardList size={20} /> },
-    { name: "AI Medical Briefer", path: "/doctor/ai-briefer", icon: <BrainCircuit size={20} /> },
     { name: "Prescriptions History", path: "/doctor/prescriptions", icon: <FileText size={20} /> },
     { name: "My Profile", path: "/doctor/profile", icon: <User size={20} /> },
   ];

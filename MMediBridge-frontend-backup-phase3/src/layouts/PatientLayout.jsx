@@ -5,23 +5,25 @@ import {
   User, 
   Calendar, 
   FileText, 
-  ClipboardList, 
-  BrainCircuit,
+  Upload, 
+  ScanLine, 
+  BrainCircuit, 
   LogOut 
 } from "lucide-react";
 
-export const DoctorLayout = () => {
+export const PatientLayout = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
 
   const menuItems = [
-    { name: "Dashboard", path: "/doctor", icon: <LayoutDashboard size={20} /> },
-    { name: "Today's Schedule", path: "/doctor/appointments", icon: <Calendar size={20} /> },
-    { name: "Appointment Requests", path: "/doctor/requests", icon: <ClipboardList size={20} /> },
-    { name: "AI Medical Briefer", path: "/doctor/ai-briefer", icon: <BrainCircuit size={20} /> },
-    { name: "Prescriptions History", path: "/doctor/prescriptions", icon: <FileText size={20} /> },
-    { name: "My Profile", path: "/doctor/profile", icon: <User size={20} /> },
+    { name: "Dashboard", path: "/patient", icon: <LayoutDashboard size={20} /> },
+    { name: "My Appointments", path: "/patient/appointments", icon: <Calendar size={20} /> },
+    { name: "Find a Doctor", path: "/patient/doctors", icon: <User size={20} /> },
+    { name: "Medical Records", path: "/patient/records", icon: <FileText size={20} /> },
+    { name: "OCR scanner", path: "/patient/ocr", icon: <ScanLine size={20} /> },
+    { name: "AI Health brief", path: "/patient/ai-brief", icon: <BrainCircuit size={20} /> },
+    { name: "My Profile", path: "/patient/profile", icon: <User size={20} /> },
   ];
 
   const handleLogout = () => {
@@ -31,10 +33,10 @@ export const DoctorLayout = () => {
 
   return (
     <div className="dashboard-container">
-      <aside className="sidebar" style={{ backgroundColor: "hsl(220, 35%, 11%)" }}>
+      <aside className="sidebar">
         <div className="sidebar-logo">
-          <span>🩺</span>
-          <span>MediBridge Dr.</span>
+          <span>💊</span>
+          <span>MediBridge</span>
         </div>
         
         <nav style={{ flex: 1 }}>
@@ -67,15 +69,13 @@ export const DoctorLayout = () => {
       <main className="main-content">
         <header className="dashboard-header">
           <div>
-            <h1>MediBridge Clinical Hub</h1>
-            <p className="text-muted">Welcome, {user?.name}</p>
+            <h1>MediBridge Patient Hub</h1>
+            <p className="text-muted">Welcome back, {user?.name}</p>
           </div>
           <div className="user-profile-badge">
-            <span className="avatar" style={{ backgroundColor: "var(--secondary-light)", color: "var(--secondary)" }}>
-              {user?.name ? user.name[0].toUpperCase() : "D"}
-            </span>
+            <span className="avatar">{user?.name ? user.name[0].toUpperCase() : "P"}</span>
             <span style={{ fontWeight: 600 }}>{user?.name}</span>
-            <span className="badge badge-pending" style={{ fontSize: "0.7rem", backgroundColor: "var(--secondary-light)", color: "var(--secondary)" }}>Doctor</span>
+            <span className="badge badge-confirmed" style={{ fontSize: "0.7rem" }}>Patient</span>
           </div>
         </header>
         <Outlet />

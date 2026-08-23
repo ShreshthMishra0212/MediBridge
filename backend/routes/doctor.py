@@ -7,7 +7,13 @@ from meeting_generator import create_google_meet
 
 import uuid
 import os
+import json
 import datetime
+
+try:
+    from google import genai
+except ImportError:
+    genai = None
 
 
 doctor_bp = Blueprint("doctor", __name__)
@@ -745,3 +751,399 @@ def get_prescription_file(
         as_attachment=False
     )
 
+
+# =====================================================
+# GET AUTHORIZED PATIENTS (via appointments)
+# =====================================================
+
+@doctor_bp.route("/my-patients", methods=["GET"])
+@token_required
+@doctor_required
+def get_my_patients(decoded):
+
+    appointments = read_data("appointments.json")
+    patients = read_data("patients.json")
+    users = read_data("users.json")
+
+    # Collect unique patient IDs from this doctor's appointments
+    patient_ids = set()
+
+    for appointment in appointments:
+
+        if appointment["doctor_id"] == decoded["user_id"]:
+            patient_ids.add(appointment["patient_id"])
+
+    # Build patient info list
+    patient_list = []
+
+    for pid in patient_ids:
+
+        # Get name from patients.json
+        name = ""
+
+        for p in patients:
+            if p["id"] == pid:
+                name = p.get("name", "")
+                break
+
+        # Fallback: get name from users.json
+        if not name:
+            for u in users:
+                if u["id"] == pid:
+                    name = u.get("name", "")
+                    break
+
+        patient_list.append({
+            "id": pid,
+            "name": name or f"Patient {pid[:8]}..."
+        })
+
+    return jsonify({
+        "patients": patient_list
+    }), 200
+
+
+# =====================================================
+# GET PATIENT MEDICAL HISTORY (authorized)
+# =====================================================
+
+@doctor_bp.route(
+    "/patient/<patient_id>/history",
+    methods=["GET"]
+)
+@token_required
+@doctor_required
+def get_patient_history(decoded, patient_id):
+
+    # -------------------------------------------------
+    # AUTHORIZATION: Doctor must have an appointment
+    # with this patient
+    # -------------------------------------------------
+
+    appointments = read_data("appointments.json")
+
+    authorized = False
+
+    for appointment in appointments:
+
+        if (
+            appointment["doctor_id"] == decoded["user_id"]
+            and appointment["patient_id"] == patient_id
+        ):
+            authorized = True
+            break
+
+    if not authorized:
+
+        return jsonify({
+            "error":
+                "You are not authorized to view this patient's records. "
+                "Only patients with existing appointments can be accessed."
+        }), 403
+
+    # -------------------------------------------------
+    # GET PATIENT PRESCRIPTIONS
+    # -------------------------------------------------
+
+    prescriptions = read_data("prescriptions.json")
+
+    patient_prescriptions = []
+
+    for p in prescriptions:
+
+        if p["patient_id"] == patient_id:
+            patient_prescriptions.append({
+                "id": p.get("id"),
+                "doctor_name": p.get("doctor_name", ""),
+                "specialization": p.get("specialization", ""),
+                "date": p.get("date", ""),
+                "diagnosis": p.get("diagnosis", ""),
+                "medicines": p.get("medicines", []),
+                "advice": p.get("advice", ""),
+                "follow_up_date": p.get("follow_up_date", "")
+            })
+
+    # -------------------------------------------------
+    # GET PATIENT PROFILE
+    # -------------------------------------------------
+
+    patients = read_data("patients.json")
+
+    patient_info = {}
+
+    for patient in patients:
+
+        if patient["id"] == patient_id:
+            patient_info = {
+                "name": patient.get("name", ""),
+                "age": patient.get("age"),
+                "gender": patient.get("gender"),
+                "phone": patient.get("phone"),
+                "address": patient.get("address")
+            }
+            break
+
+    # -------------------------------------------------
+    # GET APPOINTMENTS HISTORY
+    # -------------------------------------------------
+
+    patient_appointments = []
+
+    for a in appointments:
+
+        if (
+            a["patient_id"] == patient_id
+            and a["doctor_id"] == decoded["user_id"]
+        ):
+            patient_appointments.append({
+                "date": a.get("date", ""),
+                "time": a.get("time", ""),
+                "status": a.get("status", ""),
+                "specialist": a.get("specialist", "")
+            })
+
+    return jsonify({
+        "patient": patient_info,
+        "prescriptions": patient_prescriptions,
+        "appointments": patient_appointments
+    }), 200
+
+
+# =====================================================
+# GENERATE AI MEDICAL BRIEF (authorized)
+# =====================================================
+
+@doctor_bp.route(
+    "/patient/<patient_id>/ai-brief",
+    methods=["POST"]
+)
+@token_required
+@doctor_required
+def generate_ai_brief(decoded, patient_id):
+
+    # -------------------------------------------------
+    # AUTHORIZATION
+    # -------------------------------------------------
+
+    appointments = read_data("appointments.json")
+
+    authorized = False
+
+    for appointment in appointments:
+
+        if (
+            appointment["doctor_id"] == decoded["user_id"]
+            and appointment["patient_id"] == patient_id
+        ):
+            authorized = True
+            break
+
+    if not authorized:
+
+        return jsonify({
+            "error":
+                "You are not authorized to generate a brief for this patient."
+        }), 403
+
+    # -------------------------------------------------
+    # GATHER PATIENT DATA
+    # -------------------------------------------------
+
+    prescriptions = read_data("prescriptions.json")
+    patients = read_data("patients.json")
+
+    patient_name = ""
+    patient_age = ""
+    patient_gender = ""
+
+    for patient in patients:
+
+        if patient["id"] == patient_id:
+            patient_name = patient.get("name", "Unknown")
+            patient_age = patient.get("age", "Not specified")
+            patient_gender = patient.get("gender", "Not specified")
+            break
+
+    # Collect prescriptions for this patient
+    patient_prescriptions = []
+
+    for p in prescriptions:
+
+        if p["patient_id"] == patient_id:
+            patient_prescriptions.append(p)
+
+    # Collect appointment history
+    patient_appointments = []
+
+    for a in appointments:
+
+        if a["patient_id"] == patient_id:
+            patient_appointments.append({
+                "date": a.get("date", ""),
+                "time": a.get("time", ""),
+                "status": a.get("status", ""),
+                "doctor": a.get("doctorName", ""),
+                "specialist": a.get("specialist", "")
+            })
+
+    # -------------------------------------------------
+    # BUILD CONTEXT FOR AI
+    # -------------------------------------------------
+
+    context_parts = []
+
+    context_parts.append(
+        f"Patient: {patient_name}, Age: {patient_age}, "
+        f"Gender: {patient_gender}"
+    )
+
+    if patient_prescriptions:
+
+        context_parts.append(
+            "\n\nPRESCRIPTIONS:"
+        )
+
+        for idx, rx in enumerate(patient_prescriptions, 1):
+
+            medicines_text = ""
+
+            if isinstance(rx.get("medicines"), list):
+                for m in rx["medicines"]:
+                    if isinstance(m, dict):
+                        medicines_text += (
+                            f"  - {m.get('name', 'Unknown')}: "
+                            f"{m.get('dosage', '')}, "
+                            f"{m.get('frequency', '')}, "
+                            f"{m.get('duration', '')}\n"
+                        )
+                    else:
+                        medicines_text += f"  - {m}\n"
+
+            context_parts.append(
+                f"\nPrescription {idx}:\n"
+                f"  Date: {rx.get('date', 'N/A')}\n"
+                f"  Doctor: {rx.get('doctor_name', 'N/A')}\n"
+                f"  Specialization: {rx.get('specialization', 'N/A')}\n"
+                f"  Diagnosis: {rx.get('diagnosis', 'N/A')}\n"
+                f"  Medicines:\n{medicines_text}"
+                f"  Advice: {rx.get('advice', 'N/A')}\n"
+                f"  Follow-up: {rx.get('follow_up_date', 'N/A')}"
+            )
+
+    if patient_appointments:
+
+        context_parts.append(
+            "\n\nAPPOINTMENT HISTORY:"
+        )
+
+        for a in patient_appointments:
+            context_parts.append(
+                f"  - {a['date']} {a['time']} | "
+                f"{a['specialist'] or 'General'} | "
+                f"Status: {a['status']}"
+            )
+
+    full_context = "\n".join(context_parts)
+
+    if not patient_prescriptions and not patient_appointments:
+
+        return jsonify({
+            "error":
+                "No medical records are available for this patient yet. "
+                "Upload patient history or create prescriptions first."
+        }), 404
+
+    # -------------------------------------------------
+    # GEMINI CALL
+    # -------------------------------------------------
+
+    if genai is None:
+
+        return jsonify({
+            "error": "AI service not available. google-genai not installed."
+        }), 503
+
+    api_key = os.getenv("GOOGLE_API_KEY", "").strip()
+
+    if not api_key:
+
+        return jsonify({
+            "error": "AI service not configured. GOOGLE_API_KEY missing."
+        }), 503
+
+    prompt = f"""You are a senior medical assistant preparing a structured
+clinical briefing for a consulting doctor.
+
+PATIENT DATA:
+{full_context}
+
+TASK:
+Generate a comprehensive, structured medical briefing in BOTH English and Hindi.
+
+IMPORTANT RULES:
+1. Do NOT invent any medical information.
+2. Only include information actually present in the provided data.
+3. If a section has no data, write "No information available" (English)
+   or "कोई जानकारी उपलब्ध नहीं" (Hindi).
+4. Hindi must be proper Hindi, not transliterated English.
+5. Return ONLY valid JSON with no markdown formatting.
+6. Each section value must be a string (use newlines within strings
+   for multi-line content).
+
+Return EXACTLY this JSON structure:
+{{
+  "english": {{
+    "patient_summary": "<overall patient summary>",
+    "previous_conditions": "<conditions and complaints>",
+    "previous_prescriptions": "<medicines, dosages, frequencies>",
+    "investigations": "<tests, reports, lab results>",
+    "important_observations": "<key clinical observations>",
+    "key_points": "<concise points for the doctor>",
+    "timeline": "<chronological medical events>"
+  }},
+  "hindi": {{
+    "patient_summary": "<रोगी का सारांश>",
+    "previous_conditions": "<पिछली स्थितियाँ और शिकायतें>",
+    "previous_prescriptions": "<दवाइयाँ, खुराक, आवृत्ति>",
+    "investigations": "<जाँच, रिपोर्ट, प्रयोगशाला परिणाम>",
+    "important_observations": "<महत्वपूर्ण नैदानिक अवलोकन>",
+    "key_points": "<डॉक्टर के लिए संक्षिप्त बिंदु>",
+    "timeline": "<कालानुक्रमिक चिकित्सा घटनाएँ>"
+  }}
+}}"""
+
+    result = None
+    for model_name in ["gemini-3.6-flash", "gemini-3.7-flash", "gemini-1.5-flash"]:
+        try:
+            client = genai.Client(api_key=api_key)
+            response = client.models.generate_content(
+                model=model_name,
+                contents=prompt
+            )
+            raw_text = (response.text or "").strip()
+
+            if raw_text.startswith("```"):
+                lines = raw_text.split("\n")
+                lines = [l for l in lines if not l.strip().startswith("```")]
+                raw_text = "\n".join(lines).strip()
+
+            result = json.loads(raw_text)
+            if result:
+                break
+        except Exception as e:
+            print(f"DOCTOR AI BRIEF ({model_name}) ERROR:", repr(e))
+            continue
+
+    if not result:
+        return jsonify({
+            "error": "Unable to generate the AI brief right now. Please try again."
+        }), 502
+
+    return jsonify({
+        "brief": result,
+        "patient_name": patient_name,
+        "disclaimer":
+            "AI-generated summary. Verify important medical "
+            "information against the original patient records "
+            "before making clinical decisions."
+    }), 200

@@ -3,6 +3,16 @@ from storage import read_data, write_data
 from routes.auth_utils import token_required
 import os
 import uuid
+import json
+from dotenv import load_dotenv
+
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+load_dotenv(os.path.join(BASE_DIR, ".env"))
+
+try:
+    from google import genai
+except ImportError:
+    genai = None
 
 
 patient_bp = Blueprint("patient", __name__)
@@ -570,4 +580,165 @@ def get_all_doctors(current_user):
 
     return jsonify({
         "doctors": doctor_list
+    }), 200
+
+
+# =====================================================
+# AI RECOMMEND DOCTOR SPECIALTY FROM SYMPTOMS
+# =====================================================
+
+@patient_bp.route("/ai-recommend-specialty", methods=["POST"])
+@token_required
+def ai_recommend_specialty(current_user):
+
+    if current_user["role"] != "patient":
+        return jsonify({
+            "error": "Access denied. Patient account required."
+        }), 403
+
+    data = request.get_json() or {}
+    symptoms = data.get("symptoms", "").strip()
+
+    if not symptoms:
+        return jsonify({
+            "error": "Please describe your symptoms or health problem."
+        }), 400
+
+    doctors = read_data("doctors.json")
+
+    registered_specialties = list(set(
+        d.get("specialization")
+        for d in doctors
+        if d.get("specialization")
+    ))
+
+    # Standard clinical taxonomy
+    standard_specialties = [
+        "General Physician",
+        "Cardiologist",
+        "Gynecologist",
+        "Dermatologist",
+        "Pediatrician",
+        "Neurologist",
+        "Orthopedist",
+        "Ophthalmologist",
+        "ENT Specialist",
+        "Psychiatrist"
+    ]
+
+    all_options = list(set(standard_specialties + registered_specialties))
+
+    api_key = os.getenv("GOOGLE_API_KEY", "").strip()
+
+    specialty = ""
+    reasoning = ""
+    reasoning_hindi = ""
+
+    # Attempt AI classification via Gemini
+    if genai is not None and api_key:
+        prompt = f"""You are an expert medical triage assistant for MediBridge hospital.
+
+Analyze the patient's health problem and recommend the single most appropriate medical specialty.
+
+Common specialties:
+{json.dumps(all_options)}
+
+Patient Problem:
+"{symptoms}"
+
+IMPORTANT RULES:
+1. Recommend the single most appropriate specialist (e.g. Gynecologist for menstrual/reproductive pain, General Physician for fever/cold/chills/malaise, Dermatologist for skin rashes/itching/acne, Cardiologist for chest pain/palpitations, Pediatrician for children, Orthopedist for bones/joints, Neurologist for nerve/headaches, ENT Specialist for ear/nose/throat).
+2. Provide a 1-2 sentence explanation in simple English.
+3. Provide a 1-2 sentence explanation in natural Hindi (Devanagari script).
+4. Return ONLY valid JSON with no markdown formatting.
+
+Format:
+{{
+  "specialty": "<Specialist Name>",
+  "reasoning": "<1-2 sentence English explanation>",
+  "reasoning_hindi": "<1-2 sentence Hindi explanation>"
+}}"""
+
+        for model_name in ["gemini-3.6-flash", "gemini-3.7-flash", "gemini-1.5-flash"]:
+            try:
+                client = genai.Client(api_key=api_key)
+                response = client.models.generate_content(
+                    model=model_name,
+                    contents=prompt
+                )
+                raw_text = (response.text or "").strip()
+
+                if raw_text.startswith("```"):
+                    lines = raw_text.split("\n")
+                    lines = [l for l in lines if not l.strip().startswith("```")]
+                    raw_text = "\n".join(lines).strip()
+
+                result = json.loads(raw_text)
+                specialty = result.get("specialty", "").strip()
+                reasoning = result.get("reasoning", "").strip()
+                reasoning_hindi = result.get("reasoning_hindi", "").strip()
+                if specialty:
+                    break
+            except Exception as e:
+                print(f"AI RECOMMEND ({model_name}) ERROR:", repr(e))
+                continue
+
+    # Fallback heuristic if AI unavailable or offline
+    if not specialty:
+        sym_lower = symptoms.lower()
+        if any(w in sym_lower for w in ["cycle", "period", "cramp", "menstrual", "pregnant", "pregnancy", "vagina", "ovary", "uterus", "pcos"]):
+            specialty = "Gynecologist"
+            reasoning = "A Gynecologist specializes in female reproductive and menstrual health concerns."
+            reasoning_hindi = "स्त्री रोग विशेषज्ञ (Gynecologist) मासिक धर्म और महिला स्वास्थ्य समस्याओं के विशेषज्ञ हैं।"
+        elif any(w in sym_lower for w in ["cold", "fever", "cough", "shiver", "chills", "flu", "weakness", "body ache", "headache", "tired"]):
+            specialty = "General Physician"
+            reasoning = "A General Physician is recommended for primary diagnosis and treatment of colds, fevers, and general symptoms."
+            reasoning_hindi = "सामान्य चिकित्सक (General Physician) सर्दी, बुखार और सामान्य स्वास्थ्य समस्याओं के प्राथमिक उपचार के लिए उपयुक्त हैं।"
+        elif any(w in sym_lower for w in ["skin", "rash", "itch", "acne", "allergy", "redness", "pimple", "eczema"]):
+            specialty = "Dermatologist"
+            reasoning = "A Dermatologist specializes in diagnosing and treating skin conditions, rashes, and allergies."
+            reasoning_hindi = "त्वचा रोग विशेषज्ञ (Dermatologist) त्वचा पर चकत्ते, खुजली और एलर्जी के इलाज के विशेषज्ञ हैं।"
+        elif any(w in sym_lower for w in ["heart", "chest pain", "breath", "palpitation", "cardiac", "bp", "blood pressure"]):
+            specialty = "Cardiologist"
+            reasoning = "A Cardiologist evaluates and manages heart and cardiovascular conditions."
+            reasoning_hindi = "हृदय रोग विशेषज्ञ (Cardiologist) हृदय और रक्तचाप संबंधी समस्याओं के विशेषज्ञ हैं।"
+        elif any(w in sym_lower for w in ["child", "baby", "infant", "kid", "toddler"]):
+            specialty = "Pediatrician"
+            reasoning = "A Pediatrician specializes in child healthcare and developmental wellness."
+            reasoning_hindi = "शिशु रोग विशेषज्ञ (Pediatrician) बच्चों के स्वास्थ्य और विकास की देखभाल करते हैं।"
+        elif any(w in sym_lower for w in ["bone", "joint", "fracture", "knee", "back pain", "spine"]):
+            specialty = "Orthopedist"
+            reasoning = "An Orthopedist specializes in bone, joint, and musculoskeletal issues."
+            reasoning_hindi = "हड्डी रोग विशेषज्ञ (Orthopedist) हड्डियों और जोड़ों के दर्द का उपचार करते हैं।"
+        else:
+            specialty = "General Physician"
+            reasoning = "A General Physician is recommended for initial medical evaluation and comprehensive care."
+            reasoning_hindi = "प्रारंभिक चिकित्सा जांच और समग्र देखभाल के लिए एक सामान्य चिकित्सक से परामर्श करने की सलाह दी जाती है।"
+
+    # Specialty name normalization against registered doctor specializations
+    target_specialty = specialty
+    for reg_spec in registered_specialties:
+        if reg_spec.lower() == specialty.lower():
+            target_specialty = reg_spec
+            break
+        elif specialty.lower() in reg_spec.lower() or reg_spec.lower() in specialty.lower():
+            target_specialty = reg_spec
+            break
+
+    # Count matching registered doctors
+    matching_doctors = [
+        d for d in doctors
+        if d.get("specialization") and (
+            d.get("specialization").lower() == target_specialty.lower() or
+            target_specialty.lower() in d.get("specialization").lower() or
+            d.get("specialization").lower() in target_specialty.lower()
+        )
+    ]
+
+    return jsonify({
+        "specialty": target_specialty,
+        "reasoning": reasoning,
+        "reasoning_hindi": reasoning_hindi,
+        "matching_doctor_count": len(matching_doctors),
+        "available_specialties": registered_specialties
     }), 200

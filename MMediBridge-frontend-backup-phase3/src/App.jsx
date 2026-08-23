@@ -25,7 +25,6 @@ import { DoctorAppointments } from "./pages/doctor/DoctorAppointments";
 import { DoctorRequests } from "./pages/doctor/DoctorRequests";
 import { DoctorPrescriptions } from "./pages/doctor/DoctorPrescriptions";
 import { DoctorProfile } from "./pages/doctor/DoctorProfile";
-import { DoctorAiBriefer } from "./pages/doctor/DoctorAiBriefer";
 
 import "./App.css";
 
@@ -58,7 +57,6 @@ function App() {
               <Route path="appointments" element={<DoctorAppointments />} />
               <Route path="requests" element={<DoctorRequests />} />
               <Route path="prescriptions" element={<DoctorPrescriptions />} />
-              <Route path="ai-briefer" element={<DoctorAiBriefer />} />
               <Route path="profile" element={<DoctorProfile />} />
             </Route>
           </Route>
