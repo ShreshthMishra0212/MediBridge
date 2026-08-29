@@ -1,9 +1,0 @@
-Flask
-Flask-Cors
-Pillow
-requests
-PyJWT
-Werkzeug
-reportlab
-python-docx
-google-genai
