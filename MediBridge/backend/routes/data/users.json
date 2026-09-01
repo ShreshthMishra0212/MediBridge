@@ -1,0 +1,121 @@
+[
+    {
+        "id": "f184781a-a734-49c5-898d-1b0a5a3c78a0",
+        "name": "Rahul",
+        "email": "rahul@gmail.com",
+        "password": "scrypt:32768:8:1$0Fb4t16szvgyQXu4$814005945da2eaf36b670a04415ec818a33001c493305741b317e65f4becbb53573b1e1a97a74264f7ad806ce5f3a59a5f2aa1dada3f5b3024bdbfc350ecb17b",
+        "role": "patient"
+    },
+    {
+        "id": "929f3528-407b-4f27-977b-3c75a7dfac70",
+        "name": "Aman",
+        "email": "aman@gmail.com",
+        "password": "mypassword123",
+        "role": "patient"
+    },
+    {
+        "id": "f0cc2d2b-ee9b-4af1-98f2-e5013848fad4",
+        "name": "Dr Test",
+        "email": "drtest@gmail.com",
+        "password": "scrypt:32768:8:1$H3X6thXg6NOlm4pZ$7551b5095f640745cba60ca95f08abc251885d98a8b5edcd7e8f7e2efd4f9d66fde33429dd1f6c3c73b5d40f6b409f624501aa20e53d1c2e9024183af6af905b",
+        "role": "doctor"
+    },
+    {
+        "id": "1bf5fe1b-512a-4514-885b-92244813a655",
+        "name": "Test Patient",
+        "email": "patienttest@gmail.com",
+        "password": "scrypt:32768:8:1$J52a0gbchSggl2jo$24a0cd3c6ff6064f3b7f720b63ab4bef8cda522a7a272ad360bf13d59a5a614377dfb0c8abe4d1b518d061b3e8b448e0aca3ace86b26dc0265cbe2060275bf75",
+        "role": "patient"
+    },
+    {
+        "id": "2d070f85-6202-435b-a88f-4ab2e0524bb1",
+        "name": "Dr Rahul Sharma",
+        "email": "rahuldoctor@gmail.com",
+        "password": "scrypt:32768:8:1$zEFVeRPFDCwwnb5f$c96d1e669b2c0daf2e1fe1c954363d0a444945a5d38316f068119f77b346f9d7158a86255a49215c6002d3b3a93d32defba36e419f44bfb30c3ebc82d7975f15",
+        "role": "doctor"
+    },
+    {
+        "id": "3576a68d-baa6-43ad-b614-fa3df593b1c7",
+        "name": "Shreshth Mishra",
+        "email": "shreshthmishraaa12@gmail.com",
+        "password": "scrypt:32768:8:1$2EXTiKcxMnEslLuz$cf17531ba3f21b9e9f47ff24fd73ba520dafd69a54b3fecb55285d9da493b79d97225c9ac3035c753fc1110e71a4c144a0433d8bf9fe015af08647af4ff52be2",
+        "role": "patient"
+    },
+    {
+        "id": "28c8c3fb-8b2a-4c9d-a4da-02ee3068b33d",
+        "name": "Dr Test Rahul",
+        "email": "testdoctor@gmail.com",
+        "password": "scrypt:32768:8:1$PT3yP32VOYePlz1X$c0d75dec60fbdfcd229623215845cad321819b4ae2373128e92b8589fa6ad8f62dbea6d7f4397bc32ce4822d9b054347746b74dc64827002ce7c49db73f23bf7",
+        "role": "doctor"
+    },
+    {
+        "id": "cb43e938-73db-4ba2-94ea-1d68dab4cfe7",
+        "name": "Test Patient",
+        "email": "testpatient2026@example.com",
+        "password": "scrypt:32768:8:1$aq1Xoyj9moXrGeFR$ece5314e0655161a23563e429fb18f9f41b470660062ceb8f5e8a0be2aae2213f0aca5751c3860b4f7b217d24ff7cbbb7bfb651c794adefb8b4d8055f3f1cc21",
+        "role": "patient"
+    },
+    {
+        "id": "c2aa625e-f7b0-4798-a78a-d16c487223d9",
+        "name": "Test Doctor",
+        "email": "testdoctor2026@example.com",
+        "password": "scrypt:32768:8:1$fjQewXelTfllGoZ4$dce8455e449de524ca3b5c079690fd8efcda7012354492fd024a5813ef51ee0dc0348205cc2430087742708b1b71da59645981c0885a5145e70a1229e25964ce",
+        "role": "doctor"
+    },
+    {
+        "id": "10965bdf-0d89-4b05-a925-76c0ef0fd90a",
+        "name": "John Tester",
+        "email": "newpatient@example.com",
+        "password": "scrypt:32768:8:1$Fi4gSNcLShOiZZk3$dc295366122a63ae0ff03a8206031fdc7e6333e3e8ec7295ba0148e1ef6c4d6c0d07042f565e30ad42d0ceda73eb6f1ff4598f9b03f5709c0fc33ab4c2266f6f",
+        "role": "patient"
+    },
+    {
+        "id": "2da10b3c-1afd-408e-95dc-db1dc6ebe582",
+        "name": "Dr. Smith Tester",
+        "email": "newdoctor@example.com",
+        "password": "scrypt:32768:8:1$sKpkRYX6qyH4yYnX$604a50f67e89400dd054b8a1b055e35fc84d65c4cc880501c30b14865d8a52e45c5eeda701697c0f8e211423b0aa014a4c697e424b7dfa55ca06e92d60845c47",
+        "role": "doctor"
+    },
+    {
+        "id": "f799067a-92f2-45c6-acca-8ad81ae62763",
+        "name": "prankit",
+        "email": "prankit@gmail.com",
+        "password": "scrypt:32768:8:1$XiEa7SnT56vi3gO7$28de968b6736165e8c05a6b3c543e6c9874c108ad3f0519634753a08bbfff1a46852281798c69a5e15f98161b2dfa82ff9940e67fbbb2f973d989f00ad52b311",
+        "role": "patient"
+    },
+    {
+        "id": "d54151bc-cdce-4126-bab4-3579d15fb0d9",
+        "name": "Dr. Maderchod",
+        "email": "mcdoctor@gmail.com",
+        "password": "scrypt:32768:8:1$CevoVvd169p431nb$3c426273aef2beb909d7c4a2104b73cca4e9e9e185efcf7f61789bbbb05b6b4fbd0c3769c9ceeb867ed8192119d7dbc8c19a7db70009eda619b1ac9d50ad5d11",
+        "role": "doctor"
+    },
+    {
+        "id": "dbbf5d34-f46c-4984-b3c3-71e55939740f",
+        "name": "bhondu",
+        "email": "bhondu@gmail.com",
+        "password": "scrypt:32768:8:1$5puaIgqB1CdMN7cP$32c58a3d126018bac05385cec9fadabb48ad6a9d3b80313a34fc90b63c11df70f0d824d2da80de8a76b1453624e5fae9cb618b7b1ee3c29ebc9ae86eb811ec7d",
+        "role": "doctor"
+    },
+    {
+        "id": "2638e507-bdd1-43b5-9226-c7a4e79389a2",
+        "name": "ronit",
+        "email": "ronit@gmail.com",
+        "password": "scrypt:32768:8:1$PymoGcv6gn0aSWA7$62d148892da495bfbfa7eae2c8be69d674baf8d00272b1f0747c01659a6c0a68d360643987ac88d2b28e844768c271bdb7caacb87553ed923e725954d01444e2",
+        "role": "doctor"
+    },
+    {
+        "id": "58ccc78c-ffb1-4c3c-a8ab-8f48e657e08e",
+        "name": "Mehardeep",
+        "email": "mehar@gmail.com",
+        "password": "scrypt:32768:8:1$jG7RvGrhQtdBR8iB$de23c60d02e04fac9e20d469ed5f882aaef077142fa869d48de2a5329244c8ada2a9444071dc35df1d945f444c07162f037edb10a33e576f2a63329c162ce882",
+        "role": "doctor"
+    },
+    {
+        "id": "2b986964-653f-45ba-84fc-f83f76bccb54",
+        "name": "mehardeep_patient",
+        "email": "mehar_p@gmail.com",
+        "password": "scrypt:32768:8:1$ERHO9cqrhyuBI8yI$ed555c16ca96b58b7434d468d67e4ff76cf640fd0532f563bfc382e0732178ab82be0c2c770757e60289142d27764fe5ca28d823ce50541957a3e4535fc71668",
+        "role": "patient"
+    }
+]

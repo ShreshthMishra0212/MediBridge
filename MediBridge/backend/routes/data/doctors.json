@@ -1,0 +1,101 @@
+[
+    {
+        "id": "f0cc2d2b-ee9b-4af1-98f2-e5013848fad4",
+        "name": "Dr. Rajesh Gupta",
+        "email": "drtest@gmail.com",
+        "specialization": "General Physician",
+        "description": "Experienced primary care and general physician treating fevers, colds, and chronic conditions.",
+        "location": "Delhi NCR",
+        "experience": 7,
+        "rating": 4.8,
+        "available_slots": []
+    },
+    {
+        "id": "2d070f85-6202-435b-a88f-4ab2e0524bb1",
+        "name": "Dr Rahul Sharma",
+        "email": "rahuldoctor@gmail.com",
+        "specialization": "Cardiologist",
+        "description": "Experienced cardiologist specializing in heart diseases.",
+        "location": "Noida",
+        "experience": 8,
+        "rating": 4.9,
+        "available_slots": []
+    },
+    {
+        "id": "28c8c3fb-8b2a-4c9d-a4da-02ee3068b33d",
+        "name": "Dr. Sunita Rao",
+        "email": "testdoctor@gmail.com",
+        "specialization": "Gynecologist",
+        "description": "Consultant gynecologist specializing in women's health, menstrual health, and maternal care.",
+        "location": "Noida Sector 62",
+        "experience": 9,
+        "rating": 4.9,
+        "available_slots": []
+    },
+    {
+        "id": "c2aa625e-f7b0-4798-a78a-d16c487223d9",
+        "name": "Test Doctor",
+        "email": "testdoctor2026@example.com",
+        "specialization": "Cardiologist",
+        "description": "Test cardiologist for MMediBridge workflow",
+        "location": "Ghaziabad",
+        "experience": 10,
+        "rating": 4.6,
+        "available_slots": []
+    },
+    {
+        "id": "2da10b3c-1afd-408e-95dc-db1dc6ebe582",
+        "name": "Dr. Smith Tester",
+        "email": "newdoctor@example.com",
+        "specialization": "Cardiologist",
+        "description": "Experienced heart specialist",
+        "location": "Noida Clinic",
+        "experience": 12,
+        "rating": 4.8,
+        "available_slots": []
+    },
+    {
+        "id": "d54151bc-cdce-4126-bab4-3579d15fb0d9",
+        "name": "Dr. Priya Verma",
+        "email": "mcdoctor@gmail.com",
+        "specialization": "Dermatologist",
+        "description": "Specialist in dermatological treatments, skin allergies, acne, and rash care.",
+        "location": "Delhi",
+        "experience": 6,
+        "rating": 4.7,
+        "available_slots": []
+    },
+    {
+        "id": "dbbf5d34-f46c-4984-b3c3-71e55939740f",
+        "name": "Dr. Ananya Sen",
+        "email": "bhondu@gmail.com",
+        "specialization": "Pediatrician",
+        "description": "Child care and pediatric healthcare specialist.",
+        "location": "Gurugram",
+        "experience": 8,
+        "rating": 4.9,
+        "available_slots": []
+    },
+    {
+        "id": "2638e507-bdd1-43b5-9226-c7a4e79389a2",
+        "name": "ronit",
+        "email": "ronit@gmail.com",
+        "specialization": null,
+        "description": null,
+        "location": null,
+        "experience": null,
+        "rating": 0,
+        "available_slots": []
+    },
+    {
+        "id": "58ccc78c-ffb1-4c3c-a8ab-8f48e657e08e",
+        "name": "Mehardeep",
+        "email": "mehar@gmail.com",
+        "specialization": null,
+        "description": null,
+        "location": null,
+        "experience": null,
+        "rating": 0,
+        "available_slots": []
+    }
+]

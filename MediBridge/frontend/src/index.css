@@ -1,0 +1,157 @@
+/* ============================================================
+   DESIGN SYSTEM CORE UTILITIES
+   ============================================================ */
+:root {
+  --font-family: 'Outfit', 'Inter', -apple-system, sans-serif;
+
+  /* HSL Color Palette - Sleek Professional Clinical Theme */
+  --hue: 215;
+  --primary: hsl(160, 80%, 32%);
+  --primary-hover:hsl(160, 80%, 32%);
+  --primary-light: hsl(var(--hue), 85%, 95%);
+  
+  --secondary: hsl(160, 80%, 40%);
+  --secondary-hover: hsl(160, 80%, 32%);
+  --secondary-light: hsl(160, 80%, 94%);
+
+  --warning: hsl(38, 95%, 50%);
+  --warning-light: hsl(38, 95%, 95%);
+  
+  --danger: hsl(0, 85%, 60%);
+  --danger-hover: hsl(0, 85%, 50%);
+  --danger-light: hsl(0, 85%, 96%);
+
+  --dark: hsl(220, 30%, 12%);
+  --light: hsl(220, 20%, 97%);
+  --white: #ffffff;
+  --border: hsl(220, 15%, 88%);
+  --text-dark: hsl(220, 25%, 15%);
+  --text-muted: hsl(220, 12%, 50%);
+
+  /* Elevations / Shadows */
+  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 8px 16px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 16px 32px rgba(27, 43, 65, 0.1);
+  --radius: 12px;
+  --transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Base resets & styling */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-family);
+  background-color: var(--light);
+  color: var(--text-dark);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
+}
+
+button, input, select, textarea {
+  font-family: inherit;
+  font-size: inherit;
+}
+
+/* Micro-animations and utility layouts */
+.animated-hover {
+  transition: var(--transition);
+}
+.animated-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+/* Scrollbar customizations */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--light);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+/* Alert styles */
+.alert {
+  padding: 16px;
+  border-radius: var(--radius);
+  border: 1px solid transparent;
+  margin-bottom: 20px;
+  font-size: 0.95rem;
+}
+.alert-danger {
+  background: var(--danger-light);
+  border-color: hsla(0, 85%, 60%, 0.2);
+  color: hsl(0, 85%, 40%);
+}
+.alert-success {
+  background: var(--secondary-light);
+  border-color: hsla(160, 80%, 40%, 0.2);
+  color: hsl(160, 80%, 25%);
+}
+.alert-info {
+  background: var(--primary-light);
+  border-color: hsla(var(--hue), 85%, 55%, 0.2);
+  color: hsl(var(--hue), 85%, 35%);
+}
+.alert-warning {
+  background: var(--warning-light);
+  border-color: hsla(38, 95%, 50%, 0.2);
+  color: hsl(38, 95%, 30%);
+}
+
+/* Loader Styles */
+.spinner {
+  width: 24px;
+  height: 24px;
+  border: 3px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  border-top-color: white;
+  animation: spin 0.8s ease-in-out infinite;
+  display: inline-block;
+  vertical-align: middle;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Badges */
+.badge {
+  display: inline-block;
+  padding: 6px 12px;
+  font-weight: 600;
+  font-size: 0.8rem;
+  border-radius: 99px;
+  text-transform: uppercase;
+}
+.badge-pending {
+  background: var(--warning-light);
+  color: hsl(38, 95%, 30%);
+}
+.badge-confirmed {
+  background: var(--secondary-light);
+  color: hsl(160, 80%, 25%);
+}
+.badge-proposed {
+  background: var(--primary-light);
+  color: hsl(var(--hue), 85%, 35%);
+}
+.badge-cancelled {
+  background: var(--danger-light);
+  color: hsl(0, 85%, 45%);
+}
