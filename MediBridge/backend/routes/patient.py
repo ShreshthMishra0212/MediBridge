@@ -1,10 +1,10 @@
 from flask import Blueprint, request, jsonify, send_file
-from storage import read_data, write_data
 from auth_utils import token_required
 import os
 import uuid
 import json
 from dotenv import load_dotenv
+import db
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 load_dotenv(os.path.join(BASE_DIR, ".env"))
@@ -16,6 +16,21 @@ except ImportError:
 
 
 patient_bp = Blueprint("patient", __name__)
+
+
+def _get_full_patient_dict(patient_id):
+    """Helper to retrieve a complete patient dict with medical documents and parsed history."""
+    patient = db.query_one("SELECT * FROM patients WHERE id = ?", (patient_id,))
+    if not patient:
+        return None
+    patient["medical_history"] = db.parse_json(patient.get("medical_history"), [])
+    docs = db.query_all(
+        "SELECT id, original_name, filename, path FROM medical_documents WHERE patient_id = ? ORDER BY uploaded_at ASC",
+        (patient_id,)
+    )
+    patient["medical_documents"] = docs
+    patient["prescriptions"] = []
+    return patient
 
 
 # =====================================================
@@ -31,19 +46,15 @@ def get_my_profile(current_user):
             "error": "Access denied. Patient account required."
         }), 403
 
-    patients = read_data("patients.json")
-
-    for patient in patients:
-
-        if patient["id"] == current_user["user_id"]:
-
-            return jsonify({
-                "patient": patient
-            }), 200
+    patient = _get_full_patient_dict(current_user["user_id"])
+    if not patient:
+        return jsonify({
+            "error": "Patient profile not found"
+        }), 404
 
     return jsonify({
-        "error": "Patient profile not found"
-    }), 404
+        "patient": patient
+    }), 200
 
 
 # =====================================================
@@ -59,36 +70,34 @@ def update_my_profile(current_user):
             "error": "Access denied. Patient account required."
         }), 403
 
-    data = request.get_json()
+    data = request.get_json() or {}
 
-    patients = read_data("patients.json")
+    patient = db.query_one("SELECT * FROM patients WHERE id = ?", (current_user["user_id"],))
+    if not patient:
+        return jsonify({
+            "error": "Patient profile not found"
+        }), 404
 
-    for patient in patients:
+    age = data.get("age", patient.get("age"))
+    gender = data.get("gender", patient.get("gender"))
+    phone = data.get("phone", patient.get("phone"))
+    address = data.get("address", patient.get("address"))
 
-        if patient["id"] == current_user["user_id"]:
+    db.execute(
+        """
+        UPDATE patients
+        SET age = ?, gender = ?, phone = ?, address = ?, updated_at = DATETIME('now')
+        WHERE id = ?
+        """,
+        (age, gender, phone, address, current_user["user_id"])
+    )
 
-            if "age" in data:
-                patient["age"] = data["age"]
-
-            if "gender" in data:
-                patient["gender"] = data["gender"]
-
-            if "phone" in data:
-                patient["phone"] = data["phone"]
-
-            if "address" in data:
-                patient["address"] = data["address"]
-
-            write_data("patients.json", patients)
-
-            return jsonify({
-                "message": "Profile updated successfully",
-                "patient": patient
-            }), 200
+    updated_patient = _get_full_patient_dict(current_user["user_id"])
 
     return jsonify({
-        "error": "Patient profile not found"
-    }), 404
+        "message": "Profile updated successfully",
+        "patient": updated_patient
+    }), 200
 
 
 # =====================================================
@@ -116,63 +125,53 @@ def upload_medical_documents(current_user):
             "error": "No files uploaded"
         }), 400
 
-    patients = read_data("patients.json")
+    patient = db.query_one("SELECT id FROM patients WHERE id = ?", (current_user["user_id"],))
+    if not patient:
+        return jsonify({
+            "error": "Patient profile not found"
+        }), 404
 
-    for patient in patients:
+    uploaded_documents = []
+    upload_folder = os.path.join(
+        os.path.dirname(os.path.dirname(__file__)),
+        "uploads"
+    )
+    os.makedirs(upload_folder, exist_ok=True)
 
-        if patient["id"] == current_user["user_id"]:
+    with db.get_db_context() as conn:
+        for file in files:
+            if file.filename == "":
+                continue
 
-            patient.setdefault("medical_documents", [])
+            if not file.filename.lower().endswith(".pdf"):
+                continue
 
-            uploaded_documents = []
+            document_id = str(uuid.uuid4())
+            filename = f"{document_id}.pdf"
+            file_path = os.path.join(upload_folder, filename)
+            file.save(file_path)
 
-            for file in files:
+            doc_record = {
+                "id": document_id,
+                "original_name": file.filename,
+                "filename": filename,
+                "path": f"uploads/{filename}"
+            }
 
-                if file.filename == "":
-                    continue
+            conn.execute(
+                """
+                INSERT INTO medical_documents (id, patient_id, original_name, filename, path)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (document_id, current_user["user_id"], file.filename, filename, f"uploads/{filename}")
+            )
 
-                if not file.filename.lower().endswith(".pdf"):
-                    continue
-
-                document_id = str(uuid.uuid4())
-
-                filename = f"{document_id}.pdf"
-
-                upload_folder = os.path.join(
-                    os.path.dirname(os.path.dirname(__file__)),
-                    "uploads"
-                )
-
-                os.makedirs(upload_folder, exist_ok=True)
-
-                file_path = os.path.join(
-                    upload_folder,
-                    filename
-                )
-
-                file.save(file_path)
-
-                document = {
-                    "id": document_id,
-                    "original_name": file.filename,
-                    "filename": filename,
-                    "path": f"uploads/{filename}"
-                }
-
-                patient["medical_documents"].append(document)
-
-                uploaded_documents.append(document)
-
-            write_data("patients.json", patients)
-
-            return jsonify({
-                "message": "Medical documents uploaded successfully",
-                "documents": uploaded_documents
-            }), 201
+            uploaded_documents.append(doc_record)
 
     return jsonify({
-        "error": "Patient profile not found"
-    }), 404
+        "message": "Medical documents uploaded successfully",
+        "documents": uploaded_documents
+    }), 201
 
 
 # =====================================================
@@ -188,22 +187,20 @@ def get_medical_documents(current_user):
             "error": "Access denied. Patient account required."
         }), 403
 
-    patients = read_data("patients.json")
+    patient = db.query_one("SELECT id FROM patients WHERE id = ?", (current_user["user_id"],))
+    if not patient:
+        return jsonify({
+            "error": "Patient profile not found"
+        }), 404
 
-    for patient in patients:
-
-        if patient["id"] == current_user["user_id"]:
-
-            return jsonify({
-                "medical_documents": patient.get(
-                    "medical_documents",
-                    []
-                )
-            }), 200
+    docs = db.query_all(
+        "SELECT id, original_name, filename, path FROM medical_documents WHERE patient_id = ? ORDER BY uploaded_at ASC",
+        (current_user["user_id"],)
+    )
 
     return jsonify({
-        "error": "Patient profile not found"
-    }), 404
+        "medical_documents": docs
+    }), 200
 
 
 # =====================================================
@@ -219,7 +216,7 @@ def create_appointment(current_user):
             "error": "Access denied. Patient account required."
         }), 403
 
-    data = request.get_json()
+    data = request.get_json() or {}
 
     doctor_id = data.get("doctor_id")
     date = data.get("date")
@@ -230,49 +227,55 @@ def create_appointment(current_user):
             "error": "doctor_id, date and time are required"
         }), 400
 
-    doctors = read_data("doctors.json")
-    appointments = read_data("appointments.json")
-
-    # Find doctor
-    doctor = None
-
-    for d in doctors:
-
-        if d["id"] == str(doctor_id):
-            doctor = d
-            break
-
+    doctor = db.query_one("SELECT * FROM doctors WHERE id = ?", (str(doctor_id),))
     if not doctor:
         return jsonify({
             "error": "Doctor not found"
         }), 404
 
-    # Create appointment
+    appointment_id = str(uuid.uuid4())
     appointment = {
-        "id": str(uuid.uuid4()),
+        "id": appointment_id,
         "patient_id": current_user["user_id"],
         "doctor_id": doctor["id"],
-
         "doctorName": doctor["name"],
         "specialist": doctor.get("specialization"),
         "area": doctor.get("location"),
         "rating": doctor.get("rating", 0),
-
         "date": date,
         "time": time,
-
         "status": "Pending",
-
         "requested_date": date,
         "requested_time": time,
-
         "suggested_date": None,
         "suggested_time": None
     }
 
-    appointments.append(appointment)
-
-    write_data("appointments.json", appointments)
+    db.execute(
+        """
+        INSERT INTO appointments (
+            id, patient_id, doctor_id, doctorName, specialist, area, rating,
+            date, time, status, requested_date, requested_time, suggested_date, suggested_time
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            appointment["id"],
+            appointment["patient_id"],
+            appointment["doctor_id"],
+            appointment["doctorName"],
+            appointment["specialist"],
+            appointment["area"],
+            appointment["rating"],
+            appointment["date"],
+            appointment["time"],
+            appointment["status"],
+            appointment["requested_date"],
+            appointment["requested_time"],
+            appointment["suggested_date"],
+            appointment["suggested_time"]
+        )
+    )
 
     return jsonify({
         "message": "Appointment request sent successfully",
@@ -293,17 +296,13 @@ def get_my_appointments(current_user):
             "error": "Access denied. Patient account required."
         }), 403
 
-    appointments = read_data("appointments.json")
-
-    my_appointments = []
-
-    for appointment in appointments:
-
-        if appointment["patient_id"] == current_user["user_id"]:
-            my_appointments.append(appointment)
+    appointments = db.query_all(
+        "SELECT * FROM appointments WHERE patient_id = ? ORDER BY date DESC, time DESC",
+        (current_user["user_id"],)
+    )
 
     return jsonify({
-        "appointments": my_appointments
+        "appointments": appointments
     }), 200
 
 
@@ -323,40 +322,39 @@ def accept_suggested_appointment(current_user, appointment_id):
             "error": "Access denied. Patient account required."
         }), 403
 
-    appointments = read_data("appointments.json")
+    appointment = db.query_one(
+        "SELECT * FROM appointments WHERE id = ? AND patient_id = ?",
+        (appointment_id, current_user["user_id"])
+    )
 
-    for appointment in appointments:
+    if not appointment:
+        return jsonify({
+            "error": "Appointment not found"
+        }), 404
 
-        if (
-            appointment["id"] == appointment_id
-            and appointment["patient_id"] == current_user["user_id"]
-        ):
+    if appointment["status"] != "Reschedule Proposed":
+        return jsonify({
+            "error": "No reschedule proposal available"
+        }), 400
 
-            if appointment["status"] != "Reschedule Proposed":
-                return jsonify({
-                    "error": "No reschedule proposal available"
-                }), 400
+    new_date = appointment["suggested_date"]
+    new_time = appointment["suggested_time"]
 
-            # Apply doctor's suggested date/time
-            appointment["date"] = appointment["suggested_date"]
-            appointment["time"] = appointment["suggested_time"]
+    db.execute(
+        """
+        UPDATE appointments
+        SET date = ?, time = ?, status = 'Confirmed', suggested_date = NULL, suggested_time = NULL
+        WHERE id = ?
+        """,
+        (new_date, new_time, appointment_id)
+    )
 
-            appointment["status"] = "Confirmed"
-
-            # Clear suggestion
-            appointment["suggested_date"] = None
-            appointment["suggested_time"] = None
-
-            write_data("appointments.json", appointments)
-
-            return jsonify({
-                "message": "New appointment time accepted",
-                "appointment": appointment
-            }), 200
+    updated = db.query_one("SELECT * FROM appointments WHERE id = ?", (appointment_id,))
 
     return jsonify({
-        "error": "Appointment not found"
-    }), 404
+        "message": "New appointment time accepted",
+        "appointment": updated
+    }), 200
 
 
 # =====================================================
@@ -375,35 +373,36 @@ def reject_suggested_appointment(current_user, appointment_id):
             "error": "Access denied. Patient account required."
         }), 403
 
-    appointments = read_data("appointments.json")
+    appointment = db.query_one(
+        "SELECT * FROM appointments WHERE id = ? AND patient_id = ?",
+        (appointment_id, current_user["user_id"])
+    )
 
-    for appointment in appointments:
+    if not appointment:
+        return jsonify({
+            "error": "Appointment not found"
+        }), 404
 
-        if (
-            appointment["id"] == appointment_id
-            and appointment["patient_id"] == current_user["user_id"]
-        ):
+    if appointment["status"] != "Reschedule Proposed":
+        return jsonify({
+            "error": "No reschedule proposal available"
+        }), 400
 
-            if appointment["status"] != "Reschedule Proposed":
-                return jsonify({
-                    "error": "No reschedule proposal available"
-                }), 400
+    db.execute(
+        """
+        UPDATE appointments
+        SET status = 'Cancelled', suggested_date = NULL, suggested_time = NULL
+        WHERE id = ?
+        """,
+        (appointment_id,)
+    )
 
-            appointment["status"] = "Cancelled"
-
-            appointment["suggested_date"] = None
-            appointment["suggested_time"] = None
-
-            write_data("appointments.json", appointments)
-
-            return jsonify({
-                "message": "Suggested appointment time rejected",
-                "appointment": appointment
-            }), 200
+    updated = db.query_one("SELECT * FROM appointments WHERE id = ?", (appointment_id,))
 
     return jsonify({
-        "error": "Appointment not found"
-    }), 404
+        "message": "Suggested appointment time rejected",
+        "appointment": updated
+    }), 200
 
 
 # =====================================================
@@ -419,17 +418,16 @@ def get_my_prescriptions(current_user):
             "error": "Access denied. Patient account required."
         }), 403
 
-    prescriptions = read_data("prescriptions.json")
+    prescriptions = db.query_all(
+        "SELECT * FROM prescriptions WHERE patient_id = ? ORDER BY date DESC",
+        (current_user["user_id"],)
+    )
 
-    my_prescriptions = []
-
-    for prescription in prescriptions:
-
-        if prescription["patient_id"] == current_user["user_id"]:
-            my_prescriptions.append(prescription)
+    for p in prescriptions:
+        p["medicines"] = db.parse_json(p.get("medicines"), [])
 
     return jsonify({
-        "prescriptions": my_prescriptions
+        "prescriptions": prescriptions
     }), 200
 
 
@@ -449,46 +447,43 @@ def download_prescription_pdf(current_user, prescription_id):
             "error": "Access denied. Patient account required."
         }), 403
 
-    prescriptions = read_data("prescriptions.json")
+    prescription = db.query_one(
+        "SELECT * FROM prescriptions WHERE id = ? AND patient_id = ?",
+        (prescription_id, current_user["user_id"])
+    )
 
-    for prescription in prescriptions:
+    if not prescription:
+        return jsonify({
+            "error": "Prescription not found"
+        }), 404
 
-        if (
-            prescription["id"] == prescription_id
-            and prescription["patient_id"] == current_user["user_id"]
-        ):
+    base_dir = os.path.dirname(
+        os.path.dirname(os.path.abspath(__file__))
+    )
 
-            base_dir = os.path.dirname(
-                os.path.dirname(os.path.abspath(__file__))
-            )
+    relative_path = prescription.get("pdf")
 
-            relative_path = prescription.get("pdf")
+    if not relative_path:
+        return jsonify({
+            "error": "Prescription PDF is not available"
+        }), 404
 
-            if not relative_path:
-                return jsonify({
-                    "error": "Prescription PDF is not available"
-                }), 404
+    file_path = os.path.join(
+        base_dir,
+        relative_path
+    )
 
-            file_path = os.path.join(
-                base_dir,
-                relative_path
-            )
+    if not os.path.exists(file_path):
+        return jsonify({
+            "error": "Prescription PDF not found"
+        }), 404
 
-            if not os.path.exists(file_path):
-                return jsonify({
-                    "error": "Prescription PDF not found"
-                }), 404
-
-            return send_file(
-                file_path,
-                as_attachment=True,
-                download_name=f"prescription-{prescription_id}.pdf",
-                mimetype="application/pdf"
-            )
-
-    return jsonify({
-        "error": "Prescription not found"
-    }), 404
+    return send_file(
+        file_path,
+        as_attachment=True,
+        download_name=f"prescription-{prescription_id}.pdf",
+        mimetype="application/pdf"
+    )
 
 
 # =====================================================
@@ -507,49 +502,48 @@ def download_prescription_docx(current_user, prescription_id):
             "error": "Access denied. Patient account required."
         }), 403
 
-    prescriptions = read_data("prescriptions.json")
+    prescription = db.query_one(
+        "SELECT * FROM prescriptions WHERE id = ? AND patient_id = ?",
+        (prescription_id, current_user["user_id"])
+    )
 
-    for prescription in prescriptions:
+    if not prescription:
+        return jsonify({
+            "error": "Prescription not found"
+        }), 404
 
-        if (
-            prescription["id"] == prescription_id
-            and prescription["patient_id"] == current_user["user_id"]
-        ):
+    base_dir = os.path.dirname(
+        os.path.dirname(os.path.abspath(__file__))
+    )
 
-            base_dir = os.path.dirname(
-                os.path.dirname(os.path.abspath(__file__))
-            )
+    relative_path = prescription.get("docx")
 
-            relative_path = prescription.get("docx")
+    if not relative_path:
+        return jsonify({
+            "error": "Prescription DOCX is not available"
+        }), 404
 
-            if not relative_path:
-                return jsonify({
-                    "error": "Prescription DOCX is not available"
-                }), 404
+    file_path = os.path.join(
+        base_dir,
+        relative_path
+    )
 
-            file_path = os.path.join(
-                base_dir,
-                relative_path
-            )
+    if not os.path.exists(file_path):
+        return jsonify({
+            "error": "Prescription DOCX not found"
+        }), 404
 
-            if not os.path.exists(file_path):
-                return jsonify({
-                    "error": "Prescription DOCX not found"
-                }), 404
+    return send_file(
+        file_path,
+        as_attachment=True,
+        download_name=f"prescription-{prescription_id}.docx",
+        mimetype=(
+            "application/vnd.openxmlformats-officedocument."
+            "wordprocessingml.document"
+        )
+    )
 
-            return send_file(
-                file_path,
-                as_attachment=True,
-                download_name=f"prescription-{prescription_id}.docx",
-                mimetype=(
-                    "application/vnd.openxmlformats-officedocument."
-                    "wordprocessingml.document"
-                )
-            )
 
-    return jsonify({
-        "error": "Prescription not found"
-    }), 404
 # =====================================================
 # GET ALL REGISTERED DOCTORS
 # =====================================================
@@ -563,23 +557,15 @@ def get_all_doctors(current_user):
             "error": "Access denied. Patient account required."
         }), 403
 
-    doctors = read_data("doctors.json")
+    doctors = db.query_all(
+        "SELECT id, name, specialization, description, location, experience, rating, available_slots FROM doctors ORDER BY name ASC"
+    )
 
-    doctor_list = []
-
-    for doctor in doctors:
-        doctor_list.append({
-            "id": doctor.get("id"),
-            "name": doctor.get("name", ""),
-            "specialization": doctor.get("specialization", ""),
-            "description": doctor.get("description", ""),
-            "location": doctor.get("location", ""),
-            "experience": doctor.get("experience", 0),
-            "rating": doctor.get("rating", 0)
-        })
+    for doc in doctors:
+        doc["available_slots"] = db.parse_json(doc.get("available_slots"), [])
 
     return jsonify({
-        "doctors": doctor_list
+        "doctors": doctors
     }), 200
 
 
@@ -604,7 +590,7 @@ def ai_recommend_specialty(current_user):
             "error": "Please describe your symptoms or health problem."
         }), 400
 
-    doctors = read_data("doctors.json")
+    doctors = db.query_all("SELECT specialization FROM doctors WHERE specialization IS NOT NULL AND specialization != ''")
 
     registered_specialties = list(set(
         d.get("specialization")
@@ -741,9 +727,10 @@ Format:
             target_specialty = reg_spec
             break
 
-    # Count matching registered doctors
+    # Count matching registered doctors from SQLite
+    all_docs = db.query_all("SELECT specialization FROM doctors")
     matching_doctors = [
-        d for d in doctors
+        d for d in all_docs
         if d.get("specialization") and (
             d.get("specialization").lower() == target_specialty.lower() or
             target_specialty.lower() in d.get("specialization").lower() or

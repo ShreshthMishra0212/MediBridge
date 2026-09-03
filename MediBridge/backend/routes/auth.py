@@ -3,8 +3,9 @@ from datetime import datetime, timedelta
 from config_ import SECRET_KEY
 from flask import Blueprint, request, jsonify
 from werkzeug.security import generate_password_hash, check_password_hash
-from storage import read_data, write_data
 import uuid
+import json
+import db
 
 auth_bp = Blueprint("auth", __name__)
 
@@ -16,7 +17,7 @@ auth_bp = Blueprint("auth", __name__)
 @auth_bp.route("/register", methods=["POST"])
 def register():
 
-    data = request.get_json()
+    data = request.get_json() or {}
 
     name = data.get("name")
     email = data.get("email")
@@ -35,80 +36,61 @@ def register():
             "error": "Invalid role"
         }), 400
 
-    # Read existing users
-    users = read_data("users.json")
-
     # Check if email already exists
-    for user in users:
+    existing_user = db.query_one("SELECT id FROM users WHERE LOWER(email) = LOWER(?)", (email,))
+    if existing_user:
+        return jsonify({
+            "error": "Email already registered"
+        }), 409
 
-        if user["email"] == email:
-            return jsonify({
-                "error": "Email already registered"
-            }), 409
+    new_user_id = str(uuid.uuid4())
+    hashed_password = generate_password_hash(password)
 
-    # Create new user
-    new_user = {
-        "id": str(uuid.uuid4()),
-        "name": name,
-        "email": email,
-        "password": generate_password_hash(password),
-        "role": role
-    }
+    # Insert user and corresponding role profile inside one atomic transaction
+    with db.get_db_context() as conn:
+        conn.execute(
+            """
+            INSERT INTO users (id, name, email, password, role)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (new_user_id, name, email, hashed_password, role)
+        )
 
-    # Save user
-    users.append(new_user)
-    write_data("users.json", users)
+        if role == "patient":
+            age = data.get("age")
+            gender = data.get("gender")
+            phone = data.get("phone")
+            address = data.get("address")
+            conn.execute(
+                """
+                INSERT INTO patients (id, name, email, age, gender, phone, address, medical_history)
+                VALUES (?, ?, ?, ?, ?, ?, ?, '[]')
+                """,
+                (new_user_id, name, email, age, gender, phone, address)
+            )
+        elif role == "doctor":
+            specialization = data.get("specialization")
+            description = data.get("description")
+            location = data.get("location")
+            experience = data.get("experience")
+            rating = data.get("rating", 0)
+            slots = json.dumps(data.get("available_slots", []))
+            conn.execute(
+                """
+                INSERT INTO doctors (id, name, email, specialization, description, location, experience, rating, available_slots)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (new_user_id, name, email, specialization, description, location, experience, rating, slots)
+            )
 
-    # =================================================
-    # CREATE PATIENT PROFILE
-    # =================================================
-
-    if role == "patient":
-
-        patients = read_data("patients.json")
-
-        new_patient = {
-            "id": new_user["id"],
-            "name": name,
-            "email": email,
-            "age": None,
-            "gender": None,
-            "phone": None,
-            "address": None,
-            "medical_history": [],
-            "prescriptions": []
-        }
-
-        patients.append(new_patient)
-
-        write_data("patients.json", patients)
-    if role  ==  "doctor":
-        doctors= read_data("doctors.json")
-        new_doctor={
-            "id": new_user["id"],
-            "name" :    name,
-            "email" : email,
-            "specialization" :None,
-            "description": None,
-            "location" : None,
-            "experience": None,
-            "rating": 0,
-            "available_slots": []
-        }
-        doctors.append(new_doctor)
-        write_data("doctors.json",doctors)
-
-    # =================================================
-    # REGISTRATION RESPONSE
-    # =================================================
-
+    # Registration response
     return jsonify({
         "message": "Registration successful",
         "user": {
-            "id": new_user["id"],
-            "name": new_user["name"],
-            "email": new_user["email"],
-            "role": new_user["role"]
+            "id": new_user_id,
+            "name": name,
+            "email": email,
+            "role": role
         }
     }), 201
 
@@ -120,7 +102,7 @@ def register():
 @auth_bp.route("/login", methods=["POST"])
 def login():
 
-    data = request.get_json()
+    data = request.get_json() or {}
 
     email = data.get("email")
     password = data.get("password")
@@ -131,46 +113,51 @@ def login():
             "error": "Email and password are required"
         }), 400
 
-    # Read users
-    users = read_data("users.json")
+    # Find user in SQLite
+    user = db.query_one(
+        "SELECT id, name, email, password, role FROM users WHERE LOWER(email) = LOWER(?)",
+        (email,)
+    )
 
-    # Find user
-    for user in users:
+    if not user:
+        return jsonify({
+            "error": "User not found"
+        }), 404
 
-        if user["email"] == email:
+    # Verify password (hash or legacy fallback)
+    password_valid = False
+    try:
+        password_valid = check_password_hash(user["password"], password)
+    except Exception:
+        password_valid = False
 
-            # Verify password
-            if check_password_hash(user["password"], password):
+    if not password_valid and user["password"] == password:
+        password_valid = True
 
-                # Create JWT token
-                token = jwt.encode(
-                    {
-                        "user_id": user["id"],
-                        "role": user["role"],
-                        "exp": datetime.utcnow() + timedelta(hours=24)
-                    },
-                    SECRET_KEY,
-                    algorithm="HS256"
-                )
+    if password_valid:
+        # Create JWT token
+        token = jwt.encode(
+            {
+                "user_id": user["id"],
+                "role": user["role"],
+                "exp": datetime.utcnow() + timedelta(hours=24)
+            },
+            SECRET_KEY,
+            algorithm="HS256"
+        )
 
-                # Login successful
-                return jsonify({
-                    "message": "Login successful",
-                    "token": token,
-                    "user": {
-                        "id": user["id"],
-                        "name": user["name"],
-                        "email": user["email"],
-                        "role": user["role"]
-                    }
-                }), 200
+        return jsonify({
+            "message": "Login successful",
+            "token": token,
+            "user": {
+                "id": user["id"],
+                "name": user["name"],
+                "email": user["email"],
+                "role": user["role"]
+            }
+        }), 200
 
-            # Password doesn't match
-            return jsonify({
-                "error": "Invalid password"
-            }), 401
-
-    # Email doesn't exist
+    # Password doesn't match
     return jsonify({
-        "error": "User not found"
-    }), 404
+        "error": "Invalid password"
+    }), 401

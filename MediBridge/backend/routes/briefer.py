@@ -5,6 +5,7 @@ import re
 import requests
 import base64
 from dotenv import load_dotenv
+import db
 
 # Load .env from routes directory and backend directory
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -101,47 +102,38 @@ def summarize_health_report(
     patient_context_parts = []
     
     if patient_id:
-        # Check prescriptions.json
+        # Check prescriptions in SQLite
         try:
-            rx_path = os.path.join(BASE_DIR, "data", "prescriptions.json")
-            if os.path.exists(rx_path):
-                with open(rx_path, "r", encoding="utf-8") as f:
-                    all_rx = json.load(f)
-                p_rx = [r for r in all_rx if r.get("patient_id") == patient_id]
-                if p_rx:
-                    patient_context_parts.append("--- PATIENT PRESCRIPTIONS ON RECORD ---")
-                    for idx, rx in enumerate(p_rx, 1):
-                        meds_list = rx.get("medicines", [])
-                        meds_formatted = []
-                        for m in meds_list:
-                            if isinstance(m, dict):
-                                meds_formatted.append(f"{m.get('name')} (Dosage: {m.get('dosage')}, Freq: {m.get('frequency')}, Dur: {m.get('duration')})")
-                            else:
-                                meds_formatted.append(str(m))
-                        patient_context_parts.append(
-                            f"Prescription {idx} (Date: {rx.get('date', 'N/A')}, Dr. {rx.get('doctor_name', 'Doctor')}):\n"
-                            f"Diagnosis: {rx.get('diagnosis', 'General')}\n"
-                            f"Medicines: {', '.join(meds_formatted)}\n"
-                            f"Advice: {rx.get('advice', 'N/A')}\n"
-                            f"Follow-up: {rx.get('follow_up_date', 'N/A')}\n"
-                        )
+            p_rx = db.query_all("SELECT * FROM prescriptions WHERE patient_id = ? ORDER BY date DESC", (patient_id,))
+            if p_rx:
+                patient_context_parts.append("--- PATIENT PRESCRIPTIONS ON RECORD ---")
+                for idx, rx in enumerate(p_rx, 1):
+                    meds_list = db.parse_json(rx.get("medicines"), [])
+                    meds_formatted = []
+                    for m in meds_list:
+                        if isinstance(m, dict):
+                            meds_formatted.append(f"{m.get('name')} (Dosage: {m.get('dosage')}, Freq: {m.get('frequency')}, Dur: {m.get('duration')})")
+                        else:
+                            meds_formatted.append(str(m))
+                    patient_context_parts.append(
+                        f"Prescription {idx} (Date: {rx.get('date', 'N/A')}, Dr. {rx.get('doctor_name', 'Doctor')}):\n"
+                        f"Diagnosis: {rx.get('diagnosis', 'General')}\n"
+                        f"Medicines: {', '.join(meds_formatted)}\n"
+                        f"Advice: {rx.get('advice', 'N/A')}\n"
+                        f"Follow-up: {rx.get('follow_up_date', 'N/A')}\n"
+                    )
         except Exception as e:
             logger.warning(f"Error reading prescriptions for patient {patient_id}: {e}")
 
-        # Check patient medical documents in uploads/
+        # Check patient medical documents in SQLite
         try:
-            patients_path = os.path.join(BASE_DIR, "data", "patients.json")
-            if os.path.exists(patients_path):
-                with open(patients_path, "r", encoding="utf-8") as f:
-                    all_pts = json.load(f)
-                for pt in all_pts:
-                    if pt.get("id") == patient_id:
-                        for doc in pt.get("medical_documents", []):
-                            doc_rel = doc.get("path")
-                            if doc_rel:
-                                doc_abs = os.path.join(BACKEND_DIR, doc_rel)
-                                if os.path.isfile(doc_abs) and doc_abs not in file_paths:
-                                    file_paths.append(doc_abs)
+            docs = db.query_all("SELECT path FROM medical_documents WHERE patient_id = ?", (patient_id,))
+            for doc in docs:
+                doc_rel = doc.get("path")
+                if doc_rel:
+                    doc_abs = os.path.join(BACKEND_DIR, doc_rel)
+                    if os.path.isfile(doc_abs) and doc_abs not in file_paths:
+                        file_paths.append(doc_abs)
         except Exception as e:
             logger.warning(f"Error checking patient medical documents: {e}")
 
@@ -337,28 +329,25 @@ def _generate_local_brief(report_text, file_paths, patient_id=None):
 
     if patient_id:
         try:
-            rx_path = os.path.join(BASE_DIR, "data", "prescriptions.json")
-            if os.path.exists(rx_path):
-                with open(rx_path, "r", encoding="utf-8") as f:
-                    all_rx = json.load(f)
-                p_rx = [r for r in all_rx if r.get("patient_id") == patient_id]
-                for r in p_rx:
-                    diag = r.get("diagnosis")
-                    if diag and diag not in diagnoses:
-                        diagnoses.append(diag)
-                    for m in r.get("medicines", []):
-                        if isinstance(m, dict):
-                            name = m.get("name", "Medication")
-                            dosage = m.get("dosage", "")
-                            freq = m.get("frequency", "")
-                            dur = m.get("duration", "")
-                            detected_medicines.append(name)
-                            instructions.append(f"{name} ({dosage}, {freq}, {dur})")
-                        else:
-                            detected_medicines.append(str(m))
-                            instructions.append(str(m))
-                    if r.get("advice"):
-                        precautions.append(r["advice"])
+            p_rx = db.query_all("SELECT * FROM prescriptions WHERE patient_id = ? ORDER BY date DESC", (patient_id,))
+            for r in p_rx:
+                diag = r.get("diagnosis")
+                if diag and diag not in diagnoses:
+                    diagnoses.append(diag)
+                meds_list = db.parse_json(r.get("medicines"), [])
+                for m in meds_list:
+                    if isinstance(m, dict):
+                        name = m.get("name", "Medication")
+                        dosage = m.get("dosage", "")
+                        freq = m.get("frequency", "")
+                        dur = m.get("duration", "")
+                        detected_medicines.append(name)
+                        instructions.append(f"{name} ({dosage}, {freq}, {dur})")
+                    else:
+                        detected_medicines.append(str(m))
+                        instructions.append(str(m))
+                if r.get("advice"):
+                    precautions.append(r["advice"])
         except Exception:
             pass
 

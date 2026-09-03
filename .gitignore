@@ -1,5 +1,48 @@
-﻿backend/venv/
-venv/
+﻿# =========================
+# Backend
+# =========================
+backend/venv/
+backend/.venv/
+backend/__pycache__/
+backend/**/*.pyc
+
+# =========================
+# Frontend
+# =========================
 node_modules/
-**/__pycache__/
+
+# =========================
+# Environment / Secrets
+# =========================
+.env
+.env.*
+!.env.example
+
+# =========================
+# Database
+# =========================
+*.db
+*.sqlite
+*.sqlite3
+
+# =========================
+# Generated / Local Data
+# =========================
+uploads/
+history/
+data/
+
+# =========================
+# Python
+# =========================
+__pycache__/
 *.pyc
+
+# =========================
+# IDE
+# =========================
+.vscode/
+.idea/
+
+backend/prescriptions/
+backend_backup_safe/

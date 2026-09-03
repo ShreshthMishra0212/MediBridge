@@ -1,9 +1,9 @@
 
 from flask import Blueprint, request, jsonify, send_from_directory
 from auth_utils import token_required, doctor_required
-from storage import read_data, write_data
 from prescription_generator import generate_prescription_files
 from meeting_generator import create_google_meet
+import db
 
 import uuid
 import os
@@ -44,21 +44,19 @@ def doctor_test(decoded):
 @doctor_required
 def get_doctor_profile(decoded):
 
-    doctors = read_data("doctors.json")
-
     doctor_id = decoded["user_id"]
+    doctor = db.query_one("SELECT * FROM doctors WHERE id = ?", (doctor_id,))
 
-    for doctor in doctors:
+    if not doctor:
+        return jsonify({
+            "error": "Doctor profile not found"
+        }), 404
 
-        if doctor["id"] == doctor_id:
-
-            return jsonify({
-                "doctor": doctor
-            }), 200
+    doctor["available_slots"] = db.parse_json(doctor.get("available_slots"), [])
 
     return jsonify({
-        "error": "Doctor profile not found"
-    }), 404
+        "doctor": doctor
+    }), 200
 
 
 # =====================================================
@@ -71,37 +69,35 @@ def get_doctor_profile(decoded):
 def update_doctor_profile(decoded):
 
     data = request.get_json() or {}
-
-    doctors = read_data("doctors.json")
-
     doctor_id = decoded["user_id"]
 
-    for doctor in doctors:
+    doctor = db.query_one("SELECT * FROM doctors WHERE id = ?", (doctor_id,))
+    if not doctor:
+        return jsonify({
+            "error": "Doctor profile not found"
+        }), 404
 
-        if doctor["id"] == doctor_id:
+    specialization = data.get("specialization", doctor.get("specialization"))
+    description = data.get("description", doctor.get("description"))
+    location = data.get("location", doctor.get("location"))
+    experience = data.get("experience", doctor.get("experience"))
 
-            if "specialization" in data:
-                doctor["specialization"] = data["specialization"]
+    db.execute(
+        """
+        UPDATE doctors
+        SET specialization = ?, description = ?, location = ?, experience = ?, updated_at = DATETIME('now')
+        WHERE id = ?
+        """,
+        (specialization, description, location, experience, doctor_id)
+    )
 
-            if "description" in data:
-                doctor["description"] = data["description"]
-
-            if "location" in data:
-                doctor["location"] = data["location"]
-
-            if "experience" in data:
-                doctor["experience"] = data["experience"]
-
-            write_data("doctors.json", doctors)
-
-            return jsonify({
-                "message": "Doctor profile updated successfully",
-                "doctor": doctor
-            }), 200
+    updated_doctor = db.query_one("SELECT * FROM doctors WHERE id = ?", (doctor_id,))
+    updated_doctor["available_slots"] = db.parse_json(updated_doctor.get("available_slots"), [])
 
     return jsonify({
-        "error": "Doctor profile not found"
-    }), 404
+        "message": "Doctor profile updated successfully",
+        "doctor": updated_doctor
+    }), 200
 
 
 # =====================================================
@@ -113,17 +109,13 @@ def update_doctor_profile(decoded):
 @doctor_required
 def get_doctor_appointments(decoded):
 
-    appointments = read_data("appointments.json")
-
-    doctor_appointments = []
-
-    for appointment in appointments:
-
-        if appointment["doctor_id"] == decoded["user_id"]:
-            doctor_appointments.append(appointment)
+    appointments = db.query_all(
+        "SELECT * FROM appointments WHERE doctor_id = ? ORDER BY date DESC, time DESC",
+        (decoded["user_id"],)
+    )
 
     return jsonify({
-        "appointments": doctor_appointments
+        "appointments": appointments
     }), 200
 
 
@@ -139,35 +131,32 @@ def get_doctor_appointments(decoded):
 @doctor_required
 def accept_appointment(decoded, appointment_id):
 
-    appointments = read_data("appointments.json")
+    appointment = db.query_one(
+        "SELECT * FROM appointments WHERE id = ? AND doctor_id = ?",
+        (appointment_id, decoded["user_id"])
+    )
 
-    for appointment in appointments:
+    if not appointment:
+        return jsonify({
+            "error": "Appointment not found"
+        }), 404
 
-        if (
-            appointment["id"] == appointment_id
-            and appointment["doctor_id"] == decoded["user_id"]
-        ):
+    if appointment["status"] != "Pending":
+        return jsonify({
+            "error": "Appointment is not pending"
+        }), 400
 
-            if appointment["status"] != "Pending":
-                return jsonify({
-                    "error": "Appointment is not pending"
-                }), 400
+    db.execute(
+        "UPDATE appointments SET status = 'Confirmed' WHERE id = ?",
+        (appointment_id,)
+    )
 
-            appointment["status"] = "Confirmed"
-
-            write_data(
-                "appointments.json",
-                appointments
-            )
-
-            return jsonify({
-                "message": "Appointment accepted successfully",
-                "appointment": appointment
-            }), 200
+    updated = db.query_one("SELECT * FROM appointments WHERE id = ?", (appointment_id,))
 
     return jsonify({
-        "error": "Appointment not found"
-    }), 404
+        "message": "Appointment accepted successfully",
+        "appointment": updated
+    }), 200
 
 
 # =====================================================
@@ -182,37 +171,18 @@ def accept_appointment(decoded, appointment_id):
 @doctor_required
 def create_appointment_meet(decoded, appointment_id):
 
-    appointments = read_data(
-        "appointments.json"
+    appointment = db.query_one(
+        "SELECT * FROM appointments WHERE id = ? AND doctor_id = ?",
+        (appointment_id, decoded["user_id"])
     )
 
-    appointment = None
-
-    # -------------------------------------------------
-    # FIND APPOINTMENT + VERIFY DOCTOR OWNERSHIP
-    # -------------------------------------------------
-
-    for a in appointments:
-
-        if (
-            a["id"] == appointment_id
-            and a["doctor_id"] == decoded["user_id"]
-        ):
-            appointment = a
-            break
-
     if not appointment:
-
         return jsonify({
             "error": "Appointment not found"
         }), 404
 
-    # -------------------------------------------------
-    # ONLY CONFIRMED APPOINTMENTS CAN GET A MEET
-    # -------------------------------------------------
-
+    # Only confirmed appointments can get a meet
     if appointment["status"] != "Confirmed":
-
         return jsonify({
             "error": (
                 "Google Meet can only be created "
@@ -220,34 +190,22 @@ def create_appointment_meet(decoded, appointment_id):
             )
         }), 400
 
-    # -------------------------------------------------
-    # IF MEET ALREADY EXISTS, RETURN EXISTING MEET
-    # -------------------------------------------------
-
+    # If meet already exists, return existing meet
     if appointment.get("join_url"):
-
         return jsonify({
             "message": "Google Meet already exists",
             "appointment_id": appointment["id"],
             "join_url": appointment["join_url"],
             "event_id": appointment.get("event_id"),
-            "start_time": appointment.get(
-                "meeting_start_time"
-            ),
-            "expires_at": appointment.get(
-                "meeting_expires_at"
-            )
+            "start_time": appointment.get("meeting_start_time"),
+            "expires_at": appointment.get("meeting_expires_at")
         }), 200
 
-    # -------------------------------------------------
-    # GET BOOKED DATE + TIME
-    # -------------------------------------------------
-
+    # Get booked date + time
     date = appointment.get("date")
     time = appointment.get("time")
 
     if not date or not time:
-
         return jsonify({
             "error": (
                 "Appointment does not contain "
@@ -255,27 +213,12 @@ def create_appointment_meet(decoded, appointment_id):
             )
         }), 400
 
-    # -------------------------------------------------
-    # CONVERT APPOINTMENT SLOT TO DATETIME
-    #
-    # appointments.json uses:
-    # "date": "2026-08-25"
-    # "time": "10:00 AM"
-    #
-    # Convert to Python datetime.
-    # meeting_generator.py will treat the naive
-    # datetime as IST.
-    # -------------------------------------------------
-
     try:
-
         start_time = datetime.datetime.strptime(
             f"{date} {time}",
             "%Y-%m-%d %I:%M %p"
         )
-
     except ValueError:
-
         return jsonify({
             "error": (
                 "Invalid appointment date/time format. "
@@ -283,75 +226,42 @@ def create_appointment_meet(decoded, appointment_id):
             )
         }), 400
 
-    # -------------------------------------------------
-    # CREATE GOOGLE MEET
-    # -------------------------------------------------
-
+    # Create Google Meet
     try:
-
         result = create_google_meet(
             start_time=start_time,
             title="MediBridge Doctor Appointment",
             duration_minutes=30
         )
-
     except Exception as e:
-
-        print(
-            "GOOGLE MEET ERROR:",
-            repr(e)
-        )
-
+        print("GOOGLE MEET ERROR:", repr(e))
         return jsonify({
             "error": "Failed to create Google Meet",
             "details": str(e)
         }), 502
 
-    # -------------------------------------------------
-    # SAVE MEETING DETAILS IN APPOINTMENT
-    # -------------------------------------------------
+    # Save meeting details in SQLite
+    join_url = result["join_url"]
+    event_id = result["event_id"]
+    meeting_start_time = result["start_time"].isoformat()
+    meeting_expires_at = result["expires_at"].isoformat()
 
-    appointment["join_url"] = result["join_url"]
-
-    appointment["event_id"] = result["event_id"]
-
-    appointment["meeting_start_time"] = (
-        result["start_time"].isoformat()
+    db.execute(
+        """
+        UPDATE appointments
+        SET join_url = ?, event_id = ?, meeting_start_time = ?, meeting_expires_at = ?
+        WHERE id = ?
+        """,
+        (join_url, event_id, meeting_start_time, meeting_expires_at, appointment_id)
     )
-
-    appointment["meeting_expires_at"] = (
-        result["expires_at"].isoformat()
-    )
-
-    write_data(
-        "appointments.json",
-        appointments
-    )
-
-    # -------------------------------------------------
-    # RETURN MEETING DETAILS
-    # -------------------------------------------------
 
     return jsonify({
-
-        "message":
-            "Google Meet created successfully",
-
-        "appointment_id":
-            appointment["id"],
-
-        "join_url":
-            result["join_url"],
-
-        "event_id":
-            result["event_id"],
-
-        "start_time":
-            result["start_time"].isoformat(),
-
-        "expires_at":
-            result["expires_at"].isoformat()
-
+        "message": "Google Meet created successfully",
+        "appointment_id": appointment["id"],
+        "join_url": join_url,
+        "event_id": event_id,
+        "start_time": meeting_start_time,
+        "expires_at": meeting_expires_at
     }), 201
 
 
@@ -373,44 +283,40 @@ def suggest_appointment_time(decoded, appointment_id):
     new_time = data.get("time")
 
     if not new_date or not new_time:
-
         return jsonify({
             "error": "New date and time are required"
         }), 400
 
-    appointments = read_data("appointments.json")
+    appointment = db.query_one(
+        "SELECT * FROM appointments WHERE id = ? AND doctor_id = ?",
+        (appointment_id, decoded["user_id"])
+    )
 
-    for appointment in appointments:
+    if not appointment:
+        return jsonify({
+            "error": "Appointment not found"
+        }), 404
 
-        if (
-            appointment["id"] == appointment_id
-            and appointment["doctor_id"] == decoded["user_id"]
-        ):
+    if appointment["status"] != "Pending":
+        return jsonify({
+            "error": "Appointment is not pending"
+        }), 400
 
-            if appointment["status"] != "Pending":
+    db.execute(
+        """
+        UPDATE appointments
+        SET suggested_date = ?, suggested_time = ?, status = 'Reschedule Proposed'
+        WHERE id = ?
+        """,
+        (new_date, new_time, appointment_id)
+    )
 
-                return jsonify({
-                    "error": "Appointment is not pending"
-                }), 400
-
-            appointment["suggested_date"] = new_date
-            appointment["suggested_time"] = new_time
-
-            appointment["status"] = "Reschedule Proposed"
-
-            write_data(
-                "appointments.json",
-                appointments
-            )
-
-            return jsonify({
-                "message": "New appointment time suggested",
-                "appointment": appointment
-            }), 200
+    updated = db.query_one("SELECT * FROM appointments WHERE id = ?", (appointment_id,))
 
     return jsonify({
-        "error": "Appointment not found"
-    }), 404
+        "message": "New appointment time suggested",
+        "appointment": updated
+    }), 200
 
 
 # =====================================================
@@ -428,36 +334,22 @@ def create_prescription(decoded, appointment_id):
     data = request.get_json()
 
     if not data:
-
         return jsonify({
             "error": "Prescription data is required"
         }), 400
 
-    appointments = read_data("appointments.json")
-
-    appointment = None
-
-    for a in appointments:
-
-        if a["id"] == appointment_id:
-
-            appointment = a
-            break
-
+    appointment = db.query_one("SELECT * FROM appointments WHERE id = ?", (appointment_id,))
     if not appointment:
-
         return jsonify({
             "error": "Appointment not found"
         }), 404
 
     if appointment["doctor_id"] != decoded["user_id"]:
-
         return jsonify({
             "error": "You are not authorized for this appointment"
         }), 403
 
     if appointment["status"] != "Confirmed":
-
         return jsonify({
             "error": (
                 "Prescription can only be created "
@@ -465,36 +357,14 @@ def create_prescription(decoded, appointment_id):
             )
         }), 400
 
-    doctors = read_data("doctors.json")
-
-    doctor = None
-
-    for d in doctors:
-
-        if d["id"] == decoded["user_id"]:
-
-            doctor = d
-            break
-
+    doctor = db.query_one("SELECT * FROM doctors WHERE id = ?", (decoded["user_id"],))
     if not doctor:
-
         return jsonify({
             "error": "Doctor not found"
         }), 404
 
-    patients = read_data("patients.json")
-
-    patient = None
-
-    for p in patients:
-
-        if p["id"] == appointment["patient_id"]:
-
-            patient = p
-            break
-
+    patient = db.query_one("SELECT * FROM patients WHERE id = ?", (appointment["patient_id"],))
     if not patient:
-
         return jsonify({
             "error": "Patient not found"
         }), 404
@@ -503,13 +373,11 @@ def create_prescription(decoded, appointment_id):
     medicines = data.get("medicines", [])
 
     if not diagnosis:
-
         return jsonify({
             "error": "Diagnosis is required"
         }), 400
 
     if not isinstance(medicines, list) or not medicines:
-
         return jsonify({
             "error": "At least one medicine is required"
         }), 400
@@ -517,60 +385,32 @@ def create_prescription(decoded, appointment_id):
     prescription_id = str(uuid.uuid4())
 
     prescription = {
-
         "id": prescription_id,
-
-        "appointment_id":
-            appointment["id"],
-
-        "doctor_id":
-            doctor["id"],
-
-        "doctor_name":
-            doctor.get("name", ""),
-
-        "specialization":
-            doctor.get(
-                "specialization",
-                appointment.get("specialist", "")
-            ),
-
-        "patient_id":
-            patient["id"],
-
-        "patient_name":
-            patient.get("name", ""),
-
-        "date":
-            data.get(
-                "date",
-                appointment.get("date", "")
-            ),
-
-        "diagnosis":
-            diagnosis,
-
-        "medicines":
-            medicines,
-
-        "advice":
-            data.get("advice", ""),
-
-        "follow_up_date":
-            data.get(
-                "follow_up_date",
-                "Not specified"
-            )
+        "appointment_id": appointment["id"],
+        "doctor_id": doctor["id"],
+        "doctor_name": doctor.get("name", ""),
+        "specialization": doctor.get(
+            "specialization",
+            appointment.get("specialist", "")
+        ),
+        "patient_id": patient["id"],
+        "patient_name": patient.get("name", ""),
+        "date": data.get(
+            "date",
+            appointment.get("date", "")
+        ),
+        "diagnosis": diagnosis,
+        "medicines": medicines,
+        "advice": data.get("advice", ""),
+        "follow_up_date": data.get(
+            "follow_up_date",
+            "Not specified"
+        )
     }
 
     try:
-
-        files = generate_prescription_files(
-            prescription
-        )
-
+        files = generate_prescription_files(prescription)
     except Exception as e:
-
         return jsonify({
             "error": "Failed to generate prescription files",
             "details": str(e)
@@ -579,27 +419,38 @@ def create_prescription(decoded, appointment_id):
     prescription["pdf"] = files["pdf"]
     prescription["docx"] = files["docx"]
 
-    prescriptions = read_data(
-        "prescriptions.json"
-    )
+    meds_json_str = json.dumps(medicines)
 
-    prescriptions.append(
-        prescription
-    )
-
-    write_data(
-        "prescriptions.json",
-        prescriptions
+    db.execute(
+        """
+        INSERT INTO prescriptions (
+            id, appointment_id, doctor_id, doctor_name, specialization,
+            patient_id, patient_name, date, diagnosis, medicines, advice,
+            follow_up_date, pdf, docx
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            prescription["id"],
+            prescription["appointment_id"],
+            prescription["doctor_id"],
+            prescription["doctor_name"],
+            prescription["specialization"],
+            prescription["patient_id"],
+            prescription["patient_name"],
+            prescription["date"],
+            prescription["diagnosis"],
+            meds_json_str,
+            prescription["advice"],
+            prescription["follow_up_date"],
+            prescription["pdf"],
+            prescription["docx"]
+        )
     )
 
     return jsonify({
-
-        "message":
-            "Prescription created successfully",
-
-        "prescription":
-            prescription
-
+        "message": "Prescription created successfully",
+        "prescription": prescription
     }), 201
 
 
@@ -615,22 +466,16 @@ def create_prescription(decoded, appointment_id):
 @doctor_required
 def get_doctor_prescriptions(decoded):
 
-    prescriptions = read_data(
-        "prescriptions.json"
+    prescriptions = db.query_all(
+        "SELECT * FROM prescriptions WHERE doctor_id = ? ORDER BY date DESC",
+        (decoded["user_id"],)
     )
 
-    doctor_prescriptions = []
-
-    for prescription in prescriptions:
-
-        if prescription["doctor_id"] == decoded["user_id"]:
-
-            doctor_prescriptions.append(
-                prescription
-            )
+    for p in prescriptions:
+        p["medicines"] = db.parse_json(p.get("medicines"), [])
 
     return jsonify({
-        "prescriptions": doctor_prescriptions
+        "prescriptions": prescriptions
     }), 200
 
 
@@ -649,24 +494,21 @@ def get_single_prescription(
     prescription_id
 ):
 
-    prescriptions = read_data(
-        "prescriptions.json"
+    prescription = db.query_one(
+        "SELECT * FROM prescriptions WHERE id = ? AND doctor_id = ?",
+        (prescription_id, decoded["user_id"])
     )
 
-    for prescription in prescriptions:
+    if not prescription:
+        return jsonify({
+            "error": "Prescription not found"
+        }), 404
 
-        if (
-            prescription["id"] == prescription_id
-            and prescription["doctor_id"] == decoded["user_id"]
-        ):
-
-            return jsonify({
-                "prescription": prescription
-            }), 200
+    prescription["medicines"] = db.parse_json(prescription.get("medicines"), [])
 
     return jsonify({
-        "error": "Prescription not found"
-    }), 404
+        "prescription": prescription
+    }), 200
 
 
 # =====================================================
@@ -686,29 +528,16 @@ def get_prescription_file(
 ):
 
     if file_type not in ["pdf", "docx"]:
-
         return jsonify({
             "error": "Invalid file type. Use pdf or docx."
         }), 400
 
-    prescriptions = read_data(
-        "prescriptions.json"
+    prescription = db.query_one(
+        "SELECT * FROM prescriptions WHERE id = ? AND doctor_id = ?",
+        (prescription_id, decoded["user_id"])
     )
 
-    prescription = None
-
-    for p in prescriptions:
-
-        if (
-            p["id"] == prescription_id
-            and p["doctor_id"] == decoded["user_id"]
-        ):
-
-            prescription = p
-            break
-
     if not prescription:
-
         return jsonify({
             "error": "Prescription not found"
         }), 404
@@ -716,33 +545,21 @@ def get_prescription_file(
     relative_path = prescription.get(file_type)
 
     if not relative_path:
-
         return jsonify({
-            "error":
-                f"{file_type.upper()} file not available"
+            "error": f"{file_type.upper()} file not available"
         }), 404
 
-    filename = os.path.basename(
-        relative_path
-    )
-
+    filename = os.path.basename(relative_path)
     prescription_folder = os.path.join(
-        os.path.dirname(
-            os.path.dirname(__file__)
-        ),
+        os.path.dirname(os.path.dirname(__file__)),
         "prescriptions"
     )
 
-    file_path = os.path.join(
-        prescription_folder,
-        filename
-    )
+    file_path = os.path.join(prescription_folder, filename)
 
     if not os.path.exists(file_path):
-
         return jsonify({
-            "error":
-                "Prescription file not found on server"
+            "error": "Prescription file not found on server"
         }), 404
 
     return send_from_directory(
@@ -761,45 +578,20 @@ def get_prescription_file(
 @doctor_required
 def get_my_patients(decoded):
 
-    appointments = read_data("appointments.json")
-    patients = read_data("patients.json")
-    users = read_data("users.json")
-
-    # Collect unique patient IDs from this doctor's appointments
-    patient_ids = set()
-
-    for appointment in appointments:
-
-        if appointment["doctor_id"] == decoded["user_id"]:
-            patient_ids.add(appointment["patient_id"])
-
-    # Build patient info list
-    patient_list = []
-
-    for pid in patient_ids:
-
-        # Get name from patients.json
-        name = ""
-
-        for p in patients:
-            if p["id"] == pid:
-                name = p.get("name", "")
-                break
-
-        # Fallback: get name from users.json
-        if not name:
-            for u in users:
-                if u["id"] == pid:
-                    name = u.get("name", "")
-                    break
-
-        patient_list.append({
-            "id": pid,
-            "name": name or f"Patient {pid[:8]}..."
-        })
+    patient_rows = db.query_all(
+        """
+        SELECT DISTINCT a.patient_id as id,
+               COALESCE(p.name, u.name, 'Patient ' || SUBSTR(a.patient_id, 1, 8)) as name
+        FROM appointments a
+        LEFT JOIN patients p ON a.patient_id = p.id
+        LEFT JOIN users u ON a.patient_id = u.id
+        WHERE a.doctor_id = ?
+        """,
+        (decoded["user_id"],)
+    )
 
     return jsonify({
-        "patients": patient_list
+        "patients": patient_rows
     }), 200
 
 
@@ -815,97 +607,54 @@ def get_my_patients(decoded):
 @doctor_required
 def get_patient_history(decoded, patient_id):
 
-    # -------------------------------------------------
-    # AUTHORIZATION: Doctor must have an appointment
-    # with this patient
-    # -------------------------------------------------
+    # Authorization: Doctor must have an appointment with this patient
+    has_appointment = db.query_one(
+        "SELECT 1 FROM appointments WHERE doctor_id = ? AND patient_id = ? LIMIT 1",
+        (decoded["user_id"], patient_id)
+    )
 
-    appointments = read_data("appointments.json")
-
-    authorized = False
-
-    for appointment in appointments:
-
-        if (
-            appointment["doctor_id"] == decoded["user_id"]
-            and appointment["patient_id"] == patient_id
-        ):
-            authorized = True
-            break
-
-    if not authorized:
-
+    if not has_appointment:
         return jsonify({
-            "error":
+            "error": (
                 "You are not authorized to view this patient's records. "
                 "Only patients with existing appointments can be accessed."
+            )
         }), 403
 
-    # -------------------------------------------------
-    # GET PATIENT PRESCRIPTIONS
-    # -------------------------------------------------
-
-    prescriptions = read_data("prescriptions.json")
-
-    patient_prescriptions = []
+    # Prescriptions
+    prescriptions = db.query_all(
+        """
+        SELECT id, doctor_name, specialization, date, diagnosis, medicines, advice, follow_up_date
+        FROM prescriptions WHERE patient_id = ? ORDER BY date DESC
+        """,
+        (patient_id,)
+    )
 
     for p in prescriptions:
+        p["medicines"] = db.parse_json(p.get("medicines"), [])
 
-        if p["patient_id"] == patient_id:
-            patient_prescriptions.append({
-                "id": p.get("id"),
-                "doctor_name": p.get("doctor_name", ""),
-                "specialization": p.get("specialization", ""),
-                "date": p.get("date", ""),
-                "diagnosis": p.get("diagnosis", ""),
-                "medicines": p.get("medicines", []),
-                "advice": p.get("advice", ""),
-                "follow_up_date": p.get("follow_up_date", "")
-            })
+    # Patient profile
+    patient_row = db.query_one(
+        "SELECT name, age, gender, phone, address FROM patients WHERE id = ?",
+        (patient_id,)
+    ) or {
+        "name": "", "age": None, "gender": None, "phone": None, "address": None
+    }
 
-    # -------------------------------------------------
-    # GET PATIENT PROFILE
-    # -------------------------------------------------
-
-    patients = read_data("patients.json")
-
-    patient_info = {}
-
-    for patient in patients:
-
-        if patient["id"] == patient_id:
-            patient_info = {
-                "name": patient.get("name", ""),
-                "age": patient.get("age"),
-                "gender": patient.get("gender"),
-                "phone": patient.get("phone"),
-                "address": patient.get("address")
-            }
-            break
-
-    # -------------------------------------------------
-    # GET APPOINTMENTS HISTORY
-    # -------------------------------------------------
-
-    patient_appointments = []
-
-    for a in appointments:
-
-        if (
-            a["patient_id"] == patient_id
-            and a["doctor_id"] == decoded["user_id"]
-        ):
-            patient_appointments.append({
-                "date": a.get("date", ""),
-                "time": a.get("time", ""),
-                "status": a.get("status", ""),
-                "specialist": a.get("specialist", "")
-            })
+    # Appointments history with this doctor
+    appointments = db.query_all(
+        """
+        SELECT date, time, status, specialist
+        FROM appointments WHERE patient_id = ? AND doctor_id = ?
+        ORDER BY date DESC, time DESC
+        """,
+        (patient_id, decoded["user_id"])
+    )
 
     return jsonify({
-        "patient": patient_info,
-        "prescriptions": patient_prescriptions,
-        "appointments": patient_appointments
+        "patient": patient_row,
+        "prescriptions": prescriptions,
+        "appointments": appointments
     }), 200
 
 
@@ -921,92 +670,65 @@ def get_patient_history(decoded, patient_id):
 @doctor_required
 def generate_ai_brief(decoded, patient_id):
 
-    # -------------------------------------------------
-    # AUTHORIZATION
-    # -------------------------------------------------
+    # Authorization
+    has_appointment = db.query_one(
+        "SELECT 1 FROM appointments WHERE doctor_id = ? AND patient_id = ? LIMIT 1",
+        (decoded["user_id"], patient_id)
+    )
 
-    appointments = read_data("appointments.json")
-
-    authorized = False
-
-    for appointment in appointments:
-
-        if (
-            appointment["doctor_id"] == decoded["user_id"]
-            and appointment["patient_id"] == patient_id
-        ):
-            authorized = True
-            break
-
-    if not authorized:
-
+    if not has_appointment:
         return jsonify({
-            "error":
-                "You are not authorized to generate a brief for this patient."
+            "error": "You are not authorized to generate a brief for this patient."
         }), 403
 
-    # -------------------------------------------------
-    # GATHER PATIENT DATA
-    # -------------------------------------------------
+    # Gather patient data from SQLite
+    patient = db.query_one("SELECT * FROM patients WHERE id = ?", (patient_id,))
+    patient_name = patient.get("name", "Unknown") if patient else "Unknown"
+    patient_age = patient.get("age", "Not specified") if patient else "Not specified"
+    patient_gender = patient.get("gender", "Not specified") if patient else "Not specified"
 
-    prescriptions = read_data("prescriptions.json")
-    patients = read_data("patients.json")
+    patient_prescriptions = db.query_all(
+        "SELECT * FROM prescriptions WHERE patient_id = ? ORDER BY date DESC",
+        (patient_id,)
+    )
+    for p in patient_prescriptions:
+        p["medicines"] = db.parse_json(p.get("medicines"), [])
 
-    patient_name = ""
-    patient_age = ""
-    patient_gender = ""
+    patient_appointments = db.query_all(
+        "SELECT * FROM appointments WHERE patient_id = ? ORDER BY date DESC, time DESC",
+        (patient_id,)
+    )
 
-    for patient in patients:
+    # Gather patient uploaded files
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    history_dir = os.path.join(base_dir, "history")
+    patient_files = []
 
-        if patient["id"] == patient_id:
-            patient_name = patient.get("name", "Unknown")
-            patient_age = patient.get("age", "Not specified")
-            patient_gender = patient.get("gender", "Not specified")
-            break
+    if os.path.isdir(history_dir):
+        for fname in os.listdir(history_dir):
+            if fname.startswith(f"{patient_id}_") or (patient_name and fname.startswith(f"{patient_name}_")):
+                fpath = os.path.join(history_dir, fname)
+                if os.path.isfile(fpath) and fpath not in patient_files:
+                    patient_files.append(fpath)
 
-    # Collect prescriptions for this patient
-    patient_prescriptions = []
-
-    for p in prescriptions:
-
-        if p["patient_id"] == patient_id:
-            patient_prescriptions.append(p)
-
-    # Collect appointment history
-    patient_appointments = []
-
-    for a in appointments:
-
-        if a["patient_id"] == patient_id:
-            patient_appointments.append({
-                "date": a.get("date", ""),
-                "time": a.get("time", ""),
-                "status": a.get("status", ""),
-                "doctor": a.get("doctorName", ""),
-                "specialist": a.get("specialist", "")
-            })
-
-    # -------------------------------------------------
-    # BUILD CONTEXT FOR AI
-    # -------------------------------------------------
+    # Check medical documents from SQLite
+    docs = db.query_all("SELECT path FROM medical_documents WHERE patient_id = ?", (patient_id,))
+    for doc in docs:
+        doc_path = doc.get("path")
+        if doc_path:
+            abs_path = os.path.join(os.path.dirname(base_dir), doc_path)
+            if os.path.isfile(abs_path) and abs_path not in patient_files:
+                patient_files.append(abs_path)
 
     context_parts = []
-
     context_parts.append(
-        f"Patient: {patient_name}, Age: {patient_age}, "
-        f"Gender: {patient_gender}"
+        f"Patient: {patient_name}, Age: {patient_age}, Gender: {patient_gender}"
     )
 
     if patient_prescriptions:
-
-        context_parts.append(
-            "\n\nPRESCRIPTIONS:"
-        )
-
+        context_parts.append("\n\nPRESCRIPTIONS:")
         for idx, rx in enumerate(patient_prescriptions, 1):
-
             medicines_text = ""
-
             if isinstance(rx.get("medicines"), list):
                 for m in rx["medicines"]:
                     if isinstance(m, dict):
@@ -1031,44 +753,13 @@ def generate_ai_brief(decoded, patient_id):
             )
 
     if patient_appointments:
-
-        context_parts.append(
-            "\n\nAPPOINTMENT HISTORY:"
-        )
-
+        context_parts.append("\n\nAPPOINTMENT HISTORY:")
         for a in patient_appointments:
             context_parts.append(
                 f"  - {a['date']} {a['time']} | "
                 f"{a['specialist'] or 'General'} | "
                 f"Status: {a['status']}"
             )
-
-    # -------------------------------------------------
-    # GATHER PATIENT UPLOADED FILES & HISTORY
-    # -------------------------------------------------
-
-    base_dir = os.path.dirname(os.path.abspath(__file__))
-    history_dir = os.path.join(base_dir, "history")
-    uploads_dir = os.path.join(os.path.dirname(base_dir), "uploads")
-
-    patient_files = []
-
-    if os.path.isdir(history_dir):
-        for fname in os.listdir(history_dir):
-            if fname.startswith(f"{patient_id}_") or (patient_name and fname.startswith(f"{patient_name}_")):
-                fpath = os.path.join(history_dir, fname)
-                if os.path.isfile(fpath) and fpath not in patient_files:
-                    patient_files.append(fpath)
-
-    # Check patient medical documents
-    for patient in patients:
-        if patient.get("id") == patient_id:
-            for doc in patient.get("medical_documents", []):
-                doc_path = doc.get("path")
-                if doc_path:
-                    abs_path = os.path.join(os.path.dirname(base_dir), doc_path)
-                    if os.path.isfile(abs_path) and abs_path not in patient_files:
-                        patient_files.append(abs_path)
 
     full_context = "\n".join(context_parts)
 
@@ -1079,10 +770,7 @@ def generate_ai_brief(decoded, patient_id):
                 "Upload patient history or create prescriptions first."
         }), 404
 
-    # -------------------------------------------------
-    # GEMINI CALL & CLINICAL BRIEF GENERATION
-    # -------------------------------------------------
-
+    # Gemini / Groq call & clinical brief generation
     api_key = os.getenv("NVIDIA_API_KEY") or os.getenv("KIMI_API_KEY")
 
     prompt = f"""You are a senior medical assistant preparing a comprehensive, structured
@@ -1343,3 +1031,4 @@ Return EXACTLY this JSON structure:
             "information against the original patient records "
             "before making clinical decisions."
     }), 200
+

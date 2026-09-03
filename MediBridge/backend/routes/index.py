@@ -42,17 +42,21 @@ from werkzeug.utils import secure_filename
 from auth import auth_bp
 from patient import patient_bp
 from doctor import doctor_bp
+from calling import calling_bp
 
 from med_salts import extract_meds_from_text
 from briefer import summarize_health_report
+import db
 
 # Google Meet
 from meeting_generator import create_google_meet
 
 
 # ============================================================
-# FLASK APP
+# FLASK APP & DATABASE INITIALIZATION
 # ============================================================
+
+db.init_db()
 
 app = Flask(
     __name__
@@ -64,7 +68,7 @@ CORS(
 
 
 # ============================================================
-# EXISTING MEDIBRIDGE BLUEPRINTS
+# EXISTING MEDIBRIDGE BLUEPRINTS & CALLING AGENT BLUEPRINT
 # ============================================================
 
 app.register_blueprint(
@@ -80,6 +84,11 @@ app.register_blueprint(
 app.register_blueprint(
     doctor_bp,
     url_prefix="/api/doctors"
+)
+
+app.register_blueprint(
+    calling_bp,
+    url_prefix="/api/calling"
 )
 
 
@@ -305,18 +314,13 @@ def brief_assist():
 
     # 2. Search uploads directory for documents registered to this patient
     try:
-        patients_json_path = os.path.join(BASE_DIR, "data", "patients.json")
-        if os.path.exists(patients_json_path):
-            with open(patients_json_path, "r", encoding="utf-8") as f:
-                patients_data = json.load(f)
-            for pt in patients_data:
-                if pt.get("id") == p_id:
-                    for doc in pt.get("medical_documents", []):
-                        doc_rel = doc.get("path")
-                        if doc_rel:
-                            doc_abs = os.path.join(os.path.dirname(BASE_DIR), doc_rel)
-                            if os.path.isfile(doc_abs) and doc_abs not in files:
-                                files.append(doc_abs)
+        docs = db.query_all("SELECT path FROM medical_documents WHERE patient_id = ?", (p_id,))
+        for doc in docs:
+            doc_rel = doc.get("path")
+            if doc_rel:
+                doc_abs = os.path.join(os.path.dirname(BASE_DIR), doc_rel)
+                if os.path.isfile(doc_abs) and doc_abs not in files:
+                    files.append(doc_abs)
     except Exception as e:
         print(f"Error checking patient upload records: {e}")
 
