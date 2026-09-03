@@ -1,7 +1,7 @@
 // Dedicated Groq AI Client for MediBridge Frontend
 // Powers real-time medical triage, AI chatbot, medicine explanations, and bilingual Hindi/English synthesis
 
-const GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY || "REMOVED_GROQ_KEY";
+const GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY;
 const GROQ_CHAT_URL = "https://api.groq.com/openai/v1/chat/completions";
 const GROQ_AUDIO_URL = "https://api.groq.com/openai/v1/audio/transcriptions";
 const DEFAULT_MODEL = "qwen/qwen3.8-27b";

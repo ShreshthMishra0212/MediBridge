@@ -230,7 +230,7 @@ def summarize_health_report(
 
     # Call Groq AI LLM
     try:
-        groq_key = os.getenv("GROQ_API_KEY") or "REMOVED_GROQ_KEY"
+        groq_key = os.getenv("GROQ_API_KEY")
         if not groq_key:
             raise RuntimeError("GROQ_API_KEY not configured")
 
